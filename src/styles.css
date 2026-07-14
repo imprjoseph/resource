@@ -23,6 +23,75 @@ button {
   cursor: pointer;
 }
 
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f4f6f8;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 16px;
+  background: white;
+  border: 1px solid #dce4e9;
+  border-radius: 8px;
+  padding: 28px;
+}
+
+.login-logo {
+  width: 180px;
+}
+
+.login-logo img {
+  width: 100%;
+  display: block;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.login-card p,
+.login-card small {
+  color: #667985;
+}
+
+.login-card p {
+  margin: 6px 0 0;
+}
+
+.login-field {
+  display: grid;
+  gap: 7px;
+}
+
+.login-field span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.login-field input {
+  height: 42px;
+  border: 1px solid #d8e1e7;
+  border-radius: 8px;
+  padding: 0 10px;
+  outline: 0;
+}
+
+.login-error {
+  color: #9b2f28;
+  background: #ffe1df;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);

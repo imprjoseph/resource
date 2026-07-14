@@ -15,6 +15,7 @@ import {
   FileText,
   FolderKanban,
   IdCard,
+  LogOut,
   RefreshCw,
   Save,
   Search,
@@ -145,6 +146,12 @@ const loanLabels: Record<string, string> = {
   returned: "已歸還",
 };
 
+const demoAdmin = {
+  email: "admin@impr.com.tw",
+  password: "impr2026",
+  name: "管理者",
+};
+
 const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "projects", label: "專案", hint: "id, code, name, client, status, owner, startDate, endDate, budget, description" },
   { key: "inventory", label: "物資", hint: "id, name, category, manager, quantity, borrowed, location, note" },
@@ -250,6 +257,7 @@ const sampleData: ResourceData = {
 
 function App() {
   const [active, setActive] = useState("dashboard");
+  const [adminName, setAdminName] = useState(() => localStorage.getItem("resource-admin-session") || "");
   const [settings, setSettings] = usePersistentSettings();
   const [data, setData] = useState<ResourceData>(sampleData);
   const [query, setQuery] = useState("");
@@ -277,6 +285,20 @@ function App() {
   const summary = useMemo(() => buildSummary(data), [data]);
   const filtered = useMemo(() => filterData(data, query), [data, query]);
 
+  function handleLogin(email: string, password: string) {
+    if (email.trim().toLowerCase() === demoAdmin.email && password === demoAdmin.password) {
+      setAdminName(demoAdmin.name);
+      localStorage.setItem("resource-admin-session", demoAdmin.name);
+      return true;
+    }
+    return false;
+  }
+
+  function logout() {
+    setAdminName("");
+    localStorage.removeItem("resource-admin-session");
+  }
+
   const tabs = [
     { id: "dashboard", label: "總覽", icon: BarChart3 },
     { id: "accounts", label: "帳號", icon: IdCard },
@@ -289,6 +311,10 @@ function App() {
     { id: "budget", label: "預算", icon: WalletCards },
     { id: "settings", label: "設定", icon: Settings },
   ];
+
+  if (!adminName) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   return (
     <div className="app-shell">
@@ -317,7 +343,7 @@ function App() {
         <header className="topbar">
           <div>
             <h1>{tabs.find((tab) => tab.id === active)?.label ?? "總覽"}</h1>
-            <p>{message}</p>
+            <p>{adminName}已登入 / {message}</p>
           </div>
           <div className="top-actions">
             <label className="search-box">
@@ -326,6 +352,9 @@ function App() {
             </label>
             <button className="icon-button" onClick={refresh} aria-label="重新整理" title="重新整理">
               <RefreshCw size={18} className={loading ? "spin" : ""} />
+            </button>
+            <button className="secondary-button" onClick={logout}>
+              <LogOut size={16} /> 登出
             </button>
           </div>
         </header>
@@ -342,6 +371,43 @@ function App() {
         {active === "settings" && <SettingsPanel settings={settings} setSettings={setSettings} onRefresh={refresh} />}
       </main>
     </div>
+  );
+}
+
+function LoginPage({ onLogin }: { onLogin: (email: string, password: string) => boolean }) {
+  const [email, setEmail] = useState(demoAdmin.email);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (onLogin(email, password)) return;
+    setError("帳號或密碼不正確");
+  }
+
+  return (
+    <main className="login-shell">
+      <form className="login-card" onSubmit={submit}>
+        <div className="login-logo">
+          <img src="./impr-logo.png" alt="IMPR Logo" />
+        </div>
+        <div>
+          <h1>公司資源管理</h1>
+          <p>請使用管理者帳號登入</p>
+        </div>
+        <label className="login-field">
+          <span>管理者帳號</span>
+          <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
+        </label>
+        <label className="login-field">
+          <span>密碼</span>
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+        </label>
+        {error && <div className="login-error">{error}</div>}
+        <button className="primary-button" type="submit">登入</button>
+        <small>測試帳號：admin@impr.com.tw / impr2026</small>
+      </form>
+    </main>
   );
 }
 
