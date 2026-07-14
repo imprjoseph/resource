@@ -15,7 +15,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -246,6 +247,11 @@ button {
   padding: 0;
 }
 
+.icon-button.small {
+  width: 32px;
+  min-height: 32px;
+}
+
 .primary-button {
   background: #1f6f62;
   color: white;
@@ -422,6 +428,13 @@ button {
   gap: 12px;
 }
 
+.card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .code {
   display: block;
   color: #1f6f62;
@@ -583,6 +596,14 @@ td {
   background: #ffffff;
 }
 
+.field select {
+  height: 40px;
+  border: 1px solid #d8e1e7;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #ffffff;
+}
+
 .field small {
   color: #667985;
   line-height: 1.45;
@@ -595,6 +616,74 @@ td {
   color: #1f6f62;
   font-weight: 700;
   text-decoration: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 32, 38, 0.46);
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(760px, 92vh);
+  overflow: auto;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #dce4e9;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+  border-bottom: 1px solid #e4ebef;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.modal-header p {
+  margin: 4px 0 0;
+  color: #667985;
+  font-size: 12px;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+.edit-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.edit-check input {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 18px 18px;
+  border-top: 1px solid #e4ebef;
 }
 
 .spin {
@@ -677,7 +766,8 @@ td {
   .two-column,
   .project-grid,
   .card-grid,
-  .settings-grid {
+  .settings-grid,
+  .edit-grid {
     grid-template-columns: 1fr;
   }
 

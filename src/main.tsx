@@ -15,7 +15,9 @@ import {
   FileText,
   FolderKanban,
   IdCard,
+  KeyRound,
   LogOut,
+  Pencil,
   RefreshCw,
   Save,
   Search,
@@ -25,7 +27,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-type SheetKey = "projects" | "inventory" | "loans" | "vendors" | "cases" | "budget" | "accounts" | "personnel";
+type SheetKey = "projects" | "inventory" | "loans" | "vendors" | "cases" | "budget" | "accounts" | "personnel" | "credentials";
 
 type SheetSettings = Record<SheetKey, string> & {
   writeEndpoint: string;
@@ -110,7 +112,7 @@ type Personnel = {
   id: string;
   name: string;
   kind: "派遣人員" | "工讀生";
-  department: string;
+  area: string;
   manager: string;
   phone: string;
   email: string;
@@ -118,6 +120,17 @@ type Personnel = {
   startDate: string;
   endDate: string;
   hourlyRate: number;
+  note: string;
+};
+
+type CompanyCredential = {
+  id: string;
+  name: string;
+  url: string;
+  account: string;
+  password: string;
+  period: string;
+  manager: string;
   note: string;
 };
 
@@ -130,6 +143,21 @@ type ResourceData = {
   budget: BudgetItem[];
   accounts: Account[];
   personnel: Personnel[];
+  credentials: CompanyCredential[];
+};
+
+type ResourceKey = keyof ResourceData;
+type ResourceRow = ResourceData[ResourceKey][number];
+type EditorState = {
+  key: ResourceKey;
+  row: ResourceRow;
+};
+
+type FormField = {
+  key: string;
+  label: string;
+  type?: "text" | "number" | "checkbox" | "select";
+  options?: { label: string; value: string }[];
 };
 
 const statusLabels: Record<string, string> = {
@@ -160,7 +188,8 @@ const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "cases", label: "案例", hint: "id, title, type, year, fileUrl, description" },
   { key: "budget", label: "預算", hint: "id, projectId, projectName, type, planned, actual, paid, item" },
   { key: "accounts", label: "帳號", hint: "id, name, email, role, department, status, note" },
-  { key: "personnel", label: "派遣/工讀", hint: "id, name, kind, department, manager, phone, email, status, startDate, endDate, hourlyRate, note" },
+  { key: "personnel", label: "派遣/工讀", hint: "id, name, kind, area, manager, phone, email, status, startDate, endDate, hourlyRate, note" },
+  { key: "credentials", label: "帳密大全", hint: "id, name, url, account, password, period, manager, note" },
 ];
 
 const emptySettings: SheetSettings = {
@@ -172,6 +201,7 @@ const emptySettings: SheetSettings = {
   budget: "",
   accounts: "",
   personnel: "",
+  credentials: "",
   writeEndpoint: "",
 };
 
@@ -249,9 +279,111 @@ const sampleData: ResourceData = {
     { id: "u-004", name: "黃郁婷", email: "admin@impr.com.tw", role: "manager", department: "行政部", status: "啟用", note: "文具與行政物資管理者" },
   ],
   personnel: [
-    { id: "pt-001", name: "張育瑄", kind: "工讀生", department: "行政部", manager: "黃郁婷", phone: "0912-345-678", email: "pt01@impr.com.tw", status: "排班中", startDate: "2026-07-01", endDate: "2026-09-30", hourlyRate: 190, note: "文具盤點、資料建檔" },
-    { id: "pt-002", name: "劉冠廷", kind: "工讀生", department: "活動部", manager: "陳柏宇", phone: "0922-555-816", email: "pt02@impr.com.tw", status: "待排班", startDate: "2026-07-15", endDate: "2026-08-31", hourlyRate: 200, note: "活動支援與報到協助" },
-    { id: "dispatch-001", name: "宏展人力派遣", kind: "派遣人員", department: "活動部", manager: "林怡君", phone: "02-2222-8899", email: "dispatch@example.com", status: "合約中", startDate: "2026-07-01", endDate: "2026-12-31", hourlyRate: 320, note: "大型活動現場支援" },
+    { id: "pt-001", name: "張育瑄", kind: "工讀生", area: "台北", manager: "黃郁婷", phone: "0912-345-678", email: "pt01@impr.com.tw", status: "排班中", startDate: "2026-07-01", endDate: "2026-09-30", hourlyRate: 190, note: "文具盤點、資料建檔" },
+    { id: "pt-002", name: "劉冠廷", kind: "工讀生", area: "新北", manager: "陳柏宇", phone: "0922-555-816", email: "pt02@impr.com.tw", status: "待排班", startDate: "2026-07-15", endDate: "2026-08-31", hourlyRate: 200, note: "活動支援與報到協助" },
+    { id: "dispatch-001", name: "宏展人力派遣", kind: "派遣人員", area: "桃園", manager: "林怡君", phone: "02-2222-8899", email: "dispatch@example.com", status: "合約中", startDate: "2026-07-01", endDate: "2026-12-31", hourlyRate: 320, note: "大型活動現場支援" },
+  ],
+  credentials: [
+    { id: "cred-001", name: "GitHub", url: "https://github.com/imprjoseph/resource", account: "imprjoseph", password: "請改填正式密碼", period: "長期", manager: "林怡君", note: "資源管理網站 repo" },
+    { id: "cred-002", name: "Google Sheet", url: "https://drive.google.com/", account: "admin@impr.com.tw", password: "請改填正式密碼", period: "2026", manager: "黃郁婷", note: "資料表與雲端資料夾" },
+  ],
+};
+
+const editorLabels: Record<ResourceKey, string> = {
+  projects: "專案",
+  inventory: "物資",
+  loans: "借用",
+  vendors: "廠商",
+  cases: "案例",
+  budget: "預算",
+  accounts: "帳號",
+  personnel: "派遣/工讀",
+  credentials: "帳密大全",
+};
+
+const editorFields: Record<ResourceKey, FormField[]> = {
+  projects: [
+    { key: "code", label: "專案代號" },
+    { key: "name", label: "專案名稱" },
+    { key: "client", label: "客戶/單位" },
+    { key: "status", label: "狀態", type: "select", options: statusOptions() },
+    { key: "owner", label: "負責人" },
+    { key: "startDate", label: "開始日期" },
+    { key: "endDate", label: "結束日期" },
+    { key: "budget", label: "預算", type: "number" },
+    { key: "description", label: "說明" },
+  ],
+  inventory: [
+    { key: "name", label: "名稱" },
+    { key: "category", label: "類別" },
+    { key: "manager", label: "管理者" },
+    { key: "quantity", label: "總量", type: "number" },
+    { key: "borrowed", label: "借出", type: "number" },
+    { key: "location", label: "位置" },
+    { key: "note", label: "備註" },
+  ],
+  loans: [
+    { key: "purpose", label: "用途" },
+    { key: "borrower", label: "借用人" },
+    { key: "status", label: "狀態", type: "select", options: loanOptions() },
+    { key: "plannedAt", label: "預計日期" },
+    { key: "borrowedAt", label: "借出日期" },
+    { key: "returnedAt", label: "歸還日期" },
+    { key: "items", label: "項目" },
+  ],
+  vendors: [
+    { key: "name", label: "廠商名稱" },
+    { key: "type", label: "類別" },
+    { key: "contact", label: "聯絡人" },
+    { key: "phone", label: "電話" },
+    { key: "email", label: "Email" },
+    { key: "note", label: "備註" },
+  ],
+  cases: [
+    { key: "title", label: "標題" },
+    { key: "type", label: "類型" },
+    { key: "year", label: "年度", type: "number" },
+    { key: "fileUrl", label: "檔案網址" },
+    { key: "description", label: "說明" },
+  ],
+  budget: [
+    { key: "projectId", label: "專案 ID" },
+    { key: "projectName", label: "專案" },
+    { key: "type", label: "類型", type: "select", options: [{ label: "收入", value: "income" }, { label: "支出", value: "expense" }] },
+    { key: "planned", label: "規劃金額", type: "number" },
+    { key: "actual", label: "實際金額", type: "number" },
+    { key: "paid", label: "已付款/收款", type: "checkbox" },
+    { key: "item", label: "項目" },
+  ],
+  accounts: [
+    { key: "name", label: "姓名" },
+    { key: "email", label: "Email" },
+    { key: "role", label: "角色", type: "select", options: [{ label: "管理者", value: "manager" }, { label: "同仁", value: "staff" }] },
+    { key: "department", label: "部門" },
+    { key: "status", label: "狀態" },
+    { key: "note", label: "備註" },
+  ],
+  personnel: [
+    { key: "name", label: "姓名/單位" },
+    { key: "kind", label: "項目", type: "select", options: [{ label: "派遣人員", value: "派遣人員" }, { label: "工讀生", value: "工讀生" }] },
+    { key: "area", label: "區域" },
+    { key: "manager", label: "管理者" },
+    { key: "phone", label: "電話" },
+    { key: "email", label: "Email" },
+    { key: "status", label: "狀態" },
+    { key: "startDate", label: "開始日期" },
+    { key: "endDate", label: "結束日期" },
+    { key: "hourlyRate", label: "時薪/單價", type: "number" },
+    { key: "note", label: "備註" },
+  ],
+  credentials: [
+    { key: "name", label: "系統名稱" },
+    { key: "url", label: "網址" },
+    { key: "account", label: "帳號" },
+    { key: "password", label: "密碼" },
+    { key: "period", label: "期間" },
+    { key: "manager", label: "管理者" },
+    { key: "note", label: "備註" },
   ],
 };
 
@@ -260,6 +392,7 @@ function App() {
   const [adminName, setAdminName] = useState(() => localStorage.getItem("resource-admin-session") || "");
   const [settings, setSettings] = usePersistentSettings();
   const [data, setData] = useState<ResourceData>(sampleData);
+  const [editor, setEditor] = useState<EditorState | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("使用範例資料");
@@ -268,10 +401,11 @@ function App() {
     setLoading(true);
     try {
       const loaded = await loadSheetData(settings);
-      setData(loaded);
-      setMessage(hasAnySheet(settings) ? "已載入 Google Sheet 資料" : "使用範例資料");
+      const merged = mergeLocalEdits(loaded);
+      setData(merged);
+      setMessage(hasAnySheet(settings) ? "已載入 Google Sheet 資料，含本機編輯" : "使用範例資料，含本機編輯");
     } catch (error) {
-      setData(sampleData);
+      setData(mergeLocalEdits(sampleData));
       setMessage(error instanceof Error ? `讀取失敗，改用範例資料：${error.message}` : "讀取失敗，改用範例資料");
     } finally {
       setLoading(false);
@@ -299,10 +433,29 @@ function App() {
     localStorage.removeItem("resource-admin-session");
   }
 
+  function openEditor(key: ResourceKey, row: ResourceRow) {
+    setEditor({ key, row });
+  }
+
+  function saveEditor(nextRow: ResourceRow) {
+    setData((current) => {
+      const rowId = (nextRow as { id: string }).id;
+      const next = {
+        ...current,
+        [editor!.key]: current[editor!.key].map((row) => ((row as { id: string }).id === rowId ? nextRow : row)),
+      } as ResourceData;
+      persistLocalEdits(next);
+      return next;
+    });
+    setMessage("已儲存本機編輯");
+    setEditor(null);
+  }
+
   const tabs = [
     { id: "dashboard", label: "總覽", icon: BarChart3 },
     { id: "accounts", label: "帳號", icon: IdCard },
     { id: "personnel", label: "派遣/工讀", icon: BriefcaseBusiness },
+    { id: "credentials", label: "帳密大全", icon: KeyRound },
     { id: "projects", label: "專案", icon: FolderKanban },
     { id: "inventory", label: "物資", icon: Boxes },
     { id: "loans", label: "借用", icon: ClipboardList },
@@ -360,15 +513,17 @@ function App() {
         </header>
 
         {active === "dashboard" && <Dashboard data={filtered} summary={summary} />}
-        {active === "accounts" && <Accounts accounts={filtered.accounts} />}
-        {active === "personnel" && <PersonnelPage personnel={filtered.personnel} />}
-        {active === "projects" && <Projects data={filtered} />}
-        {active === "inventory" && <Inventory items={filtered.inventory} />}
-        {active === "loans" && <Loans loans={filtered.loans} />}
-        {active === "vendors" && <Vendors vendors={filtered.vendors} />}
-        {active === "cases" && <Cases cases={filtered.cases} />}
-        {active === "budget" && <Budget items={filtered.budget} />}
+        {active === "accounts" && <Accounts accounts={filtered.accounts} onEdit={(row) => openEditor("accounts", row)} />}
+        {active === "personnel" && <PersonnelPage personnel={filtered.personnel} onEdit={(row) => openEditor("personnel", row)} />}
+        {active === "credentials" && <Credentials credentials={filtered.credentials} onEdit={(row) => openEditor("credentials", row)} />}
+        {active === "projects" && <Projects data={filtered} onEdit={(row) => openEditor("projects", row)} />}
+        {active === "inventory" && <Inventory items={filtered.inventory} onEdit={(row) => openEditor("inventory", row)} />}
+        {active === "loans" && <Loans loans={filtered.loans} onEdit={(row) => openEditor("loans", row)} />}
+        {active === "vendors" && <Vendors vendors={filtered.vendors} onEdit={(row) => openEditor("vendors", row)} />}
+        {active === "cases" && <Cases cases={filtered.cases} onEdit={(row) => openEditor("cases", row)} />}
+        {active === "budget" && <Budget items={filtered.budget} onEdit={(row) => openEditor("budget", row)} />}
         {active === "settings" && <SettingsPanel settings={settings} setSettings={setSettings} onRefresh={refresh} />}
+        {editor && <EditorModal editor={editor} onClose={() => setEditor(null)} onSave={saveEditor} />}
       </main>
     </div>
   );
@@ -457,7 +612,7 @@ function Dashboard({ data, summary }: { data: ResourceData; summary: ReturnType<
   );
 }
 
-function Accounts({ accounts }: { accounts: Account[] }) {
+function Accounts({ accounts, onEdit }: { accounts: Account[]; onEdit: (row: Account) => void }) {
   const managers = accounts.filter((account) => account.role === "manager");
   const staff = accounts.filter((account) => account.role === "staff");
 
@@ -471,7 +626,7 @@ function Accounts({ accounts }: { accounts: Account[] }) {
 
       <Panel title="帳號管理" action={<ExportButton rows={accounts} filename="accounts.csv" />}>
         <DataTable
-          columns={["姓名", "Email", "角色", "部門", "狀態", "備註"]}
+          columns={["姓名", "Email", "角色", "部門", "狀態", "備註", "操作"]}
           rows={accounts.map((account) => [
             account.name,
             account.email,
@@ -479,6 +634,7 @@ function Accounts({ accounts }: { accounts: Account[] }) {
             account.department,
             account.status,
             account.note,
+            <EditButton onClick={() => onEdit(account)} />,
           ])}
         />
       </Panel>
@@ -486,7 +642,7 @@ function Accounts({ accounts }: { accounts: Account[] }) {
   );
 }
 
-function PersonnelPage({ personnel }: { personnel: Personnel[] }) {
+function PersonnelPage({ personnel, onEdit }: { personnel: Personnel[]; onEdit: (row: Personnel) => void }) {
   const byKind = Object.entries(groupBy(personnel, (person) => person.kind || "未分類"));
   const activeCount = personnel.filter((person) => !person.status.includes("停用") && !person.status.includes("結束")).length;
   const monthlyEstimate = personnel.reduce((sum, person) => sum + person.hourlyRate * 80, 0);
@@ -516,11 +672,11 @@ function PersonnelPage({ personnel }: { personnel: Personnel[] }) {
 
       <Panel title="派遣人員 / 工讀生" action={<ExportButton rows={personnel} filename="personnel.csv" />}>
         <DataTable
-          columns={["姓名/單位", "項目", "部門", "管理者", "電話", "Email", "狀態", "期間", "時薪/單價", "備註"]}
+          columns={["姓名/單位", "項目", "區域", "管理者", "電話", "Email", "狀態", "期間", "時薪/單價", "備註", "操作"]}
           rows={personnel.map((person) => [
             person.name,
             person.kind,
-            person.department,
+            person.area,
             person.manager,
             person.phone,
             person.email,
@@ -528,6 +684,7 @@ function PersonnelPage({ personnel }: { personnel: Personnel[] }) {
             `${person.startDate || "未定"} → ${person.endDate || "未定"}`,
             person.hourlyRate ? money(person.hourlyRate) : "",
             person.note,
+            <EditButton onClick={() => onEdit(person)} />,
           ])}
         />
       </Panel>
@@ -535,7 +692,27 @@ function PersonnelPage({ personnel }: { personnel: Personnel[] }) {
   );
 }
 
-function Projects({ data }: { data: ResourceData }) {
+function Credentials({ credentials, onEdit }: { credentials: CompanyCredential[]; onEdit: (row: CompanyCredential) => void }) {
+  return (
+    <Panel title="公司帳密大全" action={<ExportButton rows={credentials} filename="credentials.csv" />}>
+      <DataTable
+        columns={["系統名稱", "網址", "帳號", "密碼", "期間", "管理者", "備註", "操作"]}
+        rows={credentials.map((credential) => [
+          credential.name,
+          credential.url ? <a className="text-link" href={credential.url} target="_blank" rel="noreferrer">開啟</a> : "",
+          credential.account,
+          credential.password,
+          credential.period,
+          credential.manager,
+          credential.note,
+          <EditButton onClick={() => onEdit(credential)} />,
+        ])}
+      />
+    </Panel>
+  );
+}
+
+function Projects({ data, onEdit }: { data: ResourceData; onEdit: (row: Project) => void }) {
   return (
     <section className="view-stack">
       <div className="project-grid">
@@ -551,7 +728,10 @@ function Projects({ data }: { data: ResourceData }) {
                   <span className="code">{project.code || "未編號"}</span>
                   <h2>{project.name}</h2>
                 </div>
-                <StatusBadge status={project.status} />
+                <div className="card-actions">
+                  <StatusBadge status={project.status} />
+                  <EditButton onClick={() => onEdit(project)} />
+                </div>
               </div>
               <p>{project.description || "尚無說明"}</p>
               <div className="meta-grid">
@@ -572,7 +752,7 @@ function Projects({ data }: { data: ResourceData }) {
   );
 }
 
-function Inventory({ items }: { items: InventoryItem[] }) {
+function Inventory({ items, onEdit }: { items: InventoryItem[]; onEdit: (row: InventoryItem) => void }) {
   const grouped = Object.entries(groupBy(items, (item) => item.category || "未分類")).sort(([a], [b]) => a.localeCompare(b, "zh-Hant"));
 
   return (
@@ -596,7 +776,7 @@ function Inventory({ items }: { items: InventoryItem[] }) {
 
       <Panel title="物資清單" action={<ExportButton rows={items} filename="inventory.csv" />}>
         <DataTable
-          columns={["名稱", "類別", "管理者", "總量", "借出", "可借", "位置", "備註"]}
+          columns={["名稱", "類別", "管理者", "總量", "借出", "可借", "位置", "備註", "操作"]}
           rows={items.map((item) => [
             item.name,
             item.category,
@@ -606,6 +786,7 @@ function Inventory({ items }: { items: InventoryItem[] }) {
             Math.max(0, item.quantity - item.borrowed),
             item.location,
             item.note,
+            <EditButton onClick={() => onEdit(item)} />,
           ])}
         />
       </Panel>
@@ -613,11 +794,11 @@ function Inventory({ items }: { items: InventoryItem[] }) {
   );
 }
 
-function Loans({ loans }: { loans: Loan[] }) {
+function Loans({ loans, onEdit }: { loans: Loan[]; onEdit: (row: Loan) => void }) {
   return (
     <Panel title="借用紀錄" action={<ExportButton rows={loans} filename="loans.csv" />}>
       <DataTable
-        columns={["用途", "借用人", "狀態", "預計", "借出", "歸還", "項目"]}
+        columns={["用途", "借用人", "狀態", "預計", "借出", "歸還", "項目", "操作"]}
         rows={loans.map((loan) => [
           loan.purpose,
           loan.borrower,
@@ -626,13 +807,14 @@ function Loans({ loans }: { loans: Loan[] }) {
           loan.borrowedAt,
           loan.returnedAt,
           loan.items,
+          <EditButton onClick={() => onEdit(loan)} />,
         ])}
       />
     </Panel>
   );
 }
 
-function Vendors({ vendors }: { vendors: Vendor[] }) {
+function Vendors({ vendors, onEdit }: { vendors: Vendor[]; onEdit: (row: Vendor) => void }) {
   return (
     <section className="card-grid">
       {vendors.map((vendor) => (
@@ -642,7 +824,10 @@ function Vendors({ vendors }: { vendors: Vendor[] }) {
               <span className="code">{vendor.type || "未分類"}</span>
               <h2>{vendor.name}</h2>
             </div>
-            <UsersRound size={18} />
+            <div className="card-actions">
+              <UsersRound size={18} />
+              <EditButton onClick={() => onEdit(vendor)} />
+            </div>
           </div>
           <p>{vendor.note || "尚無備註"}</p>
           <div className="meta-grid">
@@ -656,7 +841,7 @@ function Vendors({ vendors }: { vendors: Vendor[] }) {
   );
 }
 
-function Cases({ cases }: { cases: CaseStudy[] }) {
+function Cases({ cases, onEdit }: { cases: CaseStudy[]; onEdit: (row: CaseStudy) => void }) {
   const grouped = groupBy(cases, (item) => String(item.year || "未指定"));
   return (
     <section className="view-stack">
@@ -672,7 +857,10 @@ function Cases({ cases }: { cases: CaseStudy[] }) {
                       <span className="code">{item.type || "案例"}</span>
                       <h2>{item.title}</h2>
                     </div>
-                    <FileText size={18} />
+                    <div className="card-actions">
+                      <FileText size={18} />
+                      <EditButton onClick={() => onEdit(item)} />
+                    </div>
                   </div>
                   <p>{item.description || "尚無說明"}</p>
                   {item.fileUrl && (
@@ -689,34 +877,19 @@ function Cases({ cases }: { cases: CaseStudy[] }) {
   );
 }
 
-function Budget({ items }: { items: BudgetItem[] }) {
-  const rows = Object.values(groupBy(items, (item) => item.projectId || item.projectName)).map((projectItems) => {
-    const first = projectItems[0];
-    const income = projectItems.filter((item) => item.type === "income").reduce((sum, item) => sum + item.actual, 0);
-    const expense = projectItems.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.actual, 0);
-    const planned = projectItems.reduce((sum, item) => sum + item.planned, 0);
-    return {
-      project: first.projectName || first.projectId,
-      planned,
-      income,
-      expense,
-      profit: income - expense,
-      paid: projectItems.filter((item) => item.paid).length,
-      total: projectItems.length,
-    };
-  });
-
+function Budget({ items, onEdit }: { items: BudgetItem[]; onEdit: (row: BudgetItem) => void }) {
   return (
     <Panel title="預算結算" action={<ExportButton rows={items} filename="budget.csv" />}>
       <DataTable
-        columns={["專案", "規劃金額", "實際收入", "實際支出", "實際利潤", "已付款/收款"]}
-        rows={rows.map((row) => [
-          row.project,
-          money(row.planned),
-          money(row.income),
-          money(row.expense),
-          money(row.profit),
-          `${row.paid}/${row.total}`,
+        columns={["專案", "類型", "項目", "規劃金額", "實際金額", "已付款/收款", "操作"]}
+        rows={items.map((item) => [
+          item.projectName || item.projectId,
+          item.type === "income" ? "收入" : "支出",
+          item.item,
+          money(item.planned),
+          money(item.actual),
+          item.paid ? "是" : "否",
+          <EditButton onClick={() => onEdit(item)} />,
         ])}
       />
     </Panel>
@@ -793,6 +966,64 @@ function Panel({ title, action, children }: { title: string; action?: React.Reac
   );
 }
 
+function EditButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="icon-button small" onClick={onClick} aria-label="編輯" title="編輯">
+      <Pencil size={15} />
+    </button>
+  );
+}
+
+function EditorModal({ editor, onClose, onSave }: { editor: EditorState; onClose: () => void; onSave: (row: ResourceRow) => void }) {
+  const [draft, setDraft] = useState<Record<string, unknown>>({ ...(editor.row as Record<string, unknown>) });
+  const fields = editorFields[editor.key];
+
+  function update(field: FormField, value: string | boolean) {
+    setDraft((current) => ({
+      ...current,
+      [field.key]: field.type === "number" ? toNumber(String(value)) : value,
+    }));
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <form className="modal-card" onSubmit={(event) => { event.preventDefault(); onSave(draft as ResourceRow); }}>
+        <div className="modal-header">
+          <div>
+            <h2>編輯{editorLabels[editor.key]}</h2>
+            <p>{String((editor.row as Record<string, unknown>).id || "")}</p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="關閉">×</button>
+        </div>
+        <div className="edit-grid">
+          {fields.map((field) => (
+            <label className={field.type === "checkbox" ? "edit-check" : "field"} key={field.key}>
+              <span>{field.label}</span>
+              {field.type === "select" ? (
+                <select value={String(draft[field.key] ?? "")} onChange={(event) => update(field, event.target.value)}>
+                  {(field.options ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              ) : field.type === "checkbox" ? (
+                <input type="checkbox" checked={Boolean(draft[field.key])} onChange={(event) => update(field, event.target.checked)} />
+              ) : (
+                <input
+                  type={field.type === "number" ? "number" : "text"}
+                  value={String(draft[field.key] ?? "")}
+                  onChange={(event) => update(field, event.target.value)}
+                />
+              )}
+            </label>
+          ))}
+        </div>
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
+          <button className="primary-button" type="submit"><Save size={16} /> 儲存</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   return <span className={`badge status-${status}`}>{statusLabels[status] ?? status}</span>;
 }
@@ -809,7 +1040,7 @@ function StatusLegend() {
   );
 }
 
-function DataTable({ columns, rows }: { columns: string[]; rows: (string | number | boolean)[][] }) {
+function DataTable({ columns, rows }: { columns: string[]; rows: React.ReactNode[][] }) {
   return (
     <div className="table-wrap">
       <table>
@@ -820,7 +1051,7 @@ function DataTable({ columns, rows }: { columns: string[]; rows: (string | numbe
           {rows.length === 0 ? (
             <tr><td colSpan={columns.length} className="empty-cell">沒有符合條件的資料</td></tr>
           ) : rows.map((row, index) => (
-            <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}>{String(cell || "")}</td>)}</tr>
+            <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}>{typeof cell === "boolean" ? String(cell) : cell}</td>)}</tr>
           ))}
         </tbody>
       </table>
@@ -857,7 +1088,7 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
 async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
   if (!hasAnySheet(settings)) return sampleData;
 
-  const [projects, inventory, loans, vendors, cases, budget, accounts, personnel] = await Promise.all([
+  const [projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials] = await Promise.all([
     loadCsv(settings.projects, sampleData.projects, mapProject),
     loadCsv(settings.inventory, sampleData.inventory, mapInventory),
     loadCsv(settings.loans, sampleData.loans, mapLoan),
@@ -866,9 +1097,10 @@ async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
     loadCsv(settings.budget, sampleData.budget, mapBudget),
     loadCsv(settings.accounts, sampleData.accounts, mapAccount),
     loadCsv(settings.personnel, sampleData.personnel, mapPersonnel),
+    loadCsv(settings.credentials, sampleData.credentials, mapCredential),
   ]);
 
-  return { projects, inventory, loans, vendors, cases, budget, accounts, personnel };
+  return { projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials };
 }
 
 async function loadCsv<T>(url: string, fallback: T[], mapper: (row: Record<string, string>, index: number) => T): Promise<T[]> {
@@ -1013,7 +1245,7 @@ function mapPersonnel(row: Record<string, string>, index: number): Personnel {
     id: pick(row, ["id", "編號"]) || `personnel-${index + 1}`,
     name: pick(row, ["name", "姓名", "名稱", "單位"]),
     kind: kindText.includes("派遣") ? "派遣人員" : "工讀生",
-    department: pick(row, ["department", "部門", "單位"]),
+    area: pick(row, ["area", "區域", "department", "部門", "單位"]),
     manager: pick(row, ["manager", "管理者", "負責人"]),
     phone: pick(row, ["phone", "電話"]),
     email: pick(row, ["email", "信箱"]),
@@ -1021,6 +1253,19 @@ function mapPersonnel(row: Record<string, string>, index: number): Personnel {
     startDate: pick(row, ["startdate", "start_date", "開始日期"]),
     endDate: pick(row, ["enddate", "end_date", "結束日期"]),
     hourlyRate: toNumber(pick(row, ["hourlyrate", "hourly_rate", "時薪", "單價"])),
+    note: pick(row, ["note", "notes", "備註"]),
+  };
+}
+
+function mapCredential(row: Record<string, string>, index: number): CompanyCredential {
+  return {
+    id: pick(row, ["id", "編號"]) || `credential-${index + 1}`,
+    name: pick(row, ["name", "系統名稱", "名稱"]),
+    url: pick(row, ["url", "網址", "連結"]),
+    account: pick(row, ["account", "帳號", "username"]),
+    password: pick(row, ["password", "密碼"]),
+    period: pick(row, ["period", "期間", "效期"]),
+    manager: pick(row, ["manager", "管理者", "負責人"]),
     note: pick(row, ["note", "notes", "備註"]),
   };
 }
@@ -1074,6 +1319,7 @@ function buildSummary(data: ResourceData) {
     }).length,
     availableItems: data.inventory.reduce((sum, item) => sum + Math.max(0, item.quantity - item.borrowed), 0),
     inventoryCategories: new Set(data.inventory.map((item) => item.category || "未分類")).size,
+    credentials: data.credentials.length,
     income: data.budget.filter((item) => item.type === "income").reduce((sum, item) => sum + item.actual, 0),
     expense: data.budget.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.actual, 0),
   };
@@ -1092,7 +1338,21 @@ function filterData(data: ResourceData, query: string): ResourceData {
     budget: data.budget.filter((item) => includes(Object.values(item))),
     accounts: data.accounts.filter((item) => includes(Object.values(item))),
     personnel: data.personnel.filter((item) => includes(Object.values(item))),
+    credentials: data.credentials.filter((item) => includes(Object.values(item))),
   };
+}
+
+function mergeLocalEdits(data: ResourceData): ResourceData {
+  try {
+    const raw = localStorage.getItem("resource-local-edits");
+    return raw ? { ...data, ...JSON.parse(raw) } : data;
+  } catch {
+    return data;
+  }
+}
+
+function persistLocalEdits(data: ResourceData) {
+  localStorage.setItem("resource-local-edits", JSON.stringify(data));
 }
 
 function groupBy<T>(rows: T[], keyer: (row: T) => string) {
@@ -1102,6 +1362,24 @@ function groupBy<T>(rows: T[], keyer: (row: T) => string) {
     groups[key].push(row);
     return groups;
   }, {});
+}
+
+function statusOptions() {
+  return [
+    { label: "規劃中", value: "planning" },
+    { label: "進行中", value: "in_progress" },
+    { label: "暫停", value: "on_hold" },
+    { label: "已完成", value: "completed" },
+    { label: "已取消", value: "cancelled" },
+  ];
+}
+
+function loanOptions() {
+  return [
+    { label: "待借出", value: "pending" },
+    { label: "借用中", value: "borrowed" },
+    { label: "已歸還", value: "returned" },
+  ];
 }
 
 function money(value: number) {
