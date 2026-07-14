@@ -56,6 +56,20 @@ button {
   background: #a7d8c9;
 }
 
+.brand-logo {
+  width: 84px;
+  min-width: 84px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+}
+
+.brand-logo img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .brand-title {
   font-weight: 800;
 }
@@ -181,8 +195,12 @@ button {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   gap: 12px;
+}
+
+.compact-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .metric-card,
@@ -220,6 +238,45 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.category-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.category-card {
+  background: white;
+  border: 1px solid #dce4e9;
+  border-radius: 8px;
+  padding: 14px;
+  min-width: 0;
+}
+
+.category-card div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.category-card span {
+  color: #667985;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.category-card strong {
+  font-size: 22px;
+  color: #1f2933;
+}
+
+.category-card small {
+  display: block;
+  color: #667985;
+  margin-top: 6px;
+  line-height: 1.45;
 }
 
 .panel {
@@ -493,6 +550,12 @@ td {
   .brand > div:last-child,
   .nav-item span {
     display: none;
+  }
+
+  .brand-logo {
+    width: 46px;
+    min-width: 46px;
+    overflow: hidden;
   }
 
   .metric-grid,

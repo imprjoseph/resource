@@ -16,13 +16,17 @@ npm run dev
 建議分頁與欄位：
 
 - 專案：`id, code, name, client, status, owner, startDate, endDate, budget, description`
-- 物資：`id, name, category, quantity, borrowed, location, note`
+- 物資：`id, name, category, manager, quantity, borrowed, location, note`
 - 借用：`id, purpose, borrower, status, plannedAt, borrowedAt, returnedAt, items`
 - 廠商：`id, name, type, contact, phone, email, note`
 - 案例：`id, title, type, year, fileUrl, description`
 - 預算：`id, projectId, projectName, type, planned, actual, paid, item`
+- 帳號：`id, name, email, role, department, status, note`
+- 派遣/工讀：`id, name, kind, department, manager, phone, email, status, startDate, endDate, hourlyRate, note`
 
 `status` 可用 `planning`、`in_progress`、`on_hold`、`completed`、`cancelled`，或直接用中文狀態。借用狀態可用 `pending`、`borrowed`、`returned`，或中文。
+
+帳號 `role` 可用 `manager` 或 `staff`，也可填中文「管理者」「同仁」。派遣/工讀 `kind` 可填「派遣人員」或「工讀生」。
 
 ## GitHub Pages 部署
 
