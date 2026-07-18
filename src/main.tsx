@@ -18,10 +18,12 @@ import {
   KeyRound,
   LogOut,
   Pencil,
+  Plus,
   RefreshCw,
   Save,
   Search,
   Settings,
+  Trash2,
   UsersRound,
   WalletCards,
 } from "lucide-react";
@@ -158,6 +160,12 @@ type FormField = {
   label: string;
   type?: "text" | "number" | "checkbox" | "select";
   options?: { label: string; value: string }[];
+};
+
+type SheetMutation = {
+  action: "create" | "update" | "delete";
+  sheet: ResourceKey;
+  row: ResourceRow;
 };
 
 const statusLabels: Record<string, string> = {
@@ -437,18 +445,59 @@ function App() {
     setEditor({ key, row });
   }
 
-  function saveEditor(nextRow: ResourceRow) {
+  function addRow(key: ResourceKey) {
+    setEditor({ key, row: createBlankRow(key) });
+  }
+
+  async function saveEditor(nextRow: ResourceRow) {
+    const key = editor!.key;
+    const action = isExistingRow(data, key, nextRow) ? "update" : "create";
     setData((current) => {
       const rowId = (nextRow as { id: string }).id;
+      const rows = current[key];
+      const exists = rows.some((row) => (row as { id: string }).id === rowId);
       const next = {
         ...current,
-        [editor!.key]: current[editor!.key].map((row) => ((row as { id: string }).id === rowId ? nextRow : row)),
+        [key]: exists ? rows.map((row) => ((row as { id: string }).id === rowId ? nextRow : row)) : [...rows, nextRow],
       } as ResourceData;
       persistLocalEdits(next);
       return next;
     });
-    setMessage("已儲存本機編輯");
     setEditor(null);
+    if (settings.writeEndpoint.trim()) {
+      try {
+        await postSheetMutation(settings.writeEndpoint, { action, sheet: key, row: nextRow });
+        setMessage("已同步送出到 Google Sheet");
+      } catch (error) {
+        setMessage(error instanceof Error ? `已先儲存在本機，同步失敗：${error.message}` : "已先儲存在本機，同步失敗");
+      }
+    } else {
+      setMessage("已儲存本機資料，尚未設定 Google Sheet 寫入端點");
+    }
+  }
+
+  async function deleteRow(key: ResourceKey, row: ResourceRow) {
+    const rowId = (row as { id: string }).id;
+    const confirmed = window.confirm(`確定刪除這筆${editorLabels[key]}資料？`);
+    if (!confirmed) return;
+    setData((current) => {
+      const next = {
+        ...current,
+        [key]: current[key].filter((item) => (item as { id: string }).id !== rowId),
+      } as ResourceData;
+      persistLocalEdits(next);
+      return next;
+    });
+    if (settings.writeEndpoint.trim()) {
+      try {
+        await postSheetMutation(settings.writeEndpoint, { action: "delete", sheet: key, row });
+        setMessage("已同步刪除 Google Sheet 資料");
+      } catch (error) {
+        setMessage(error instanceof Error ? `已先刪除本機資料，同步失敗：${error.message}` : "已先刪除本機資料，同步失敗");
+      }
+    } else {
+      setMessage("已刪除本機資料，尚未設定 Google Sheet 寫入端點");
+    }
   }
 
   const tabs = [
@@ -513,15 +562,15 @@ function App() {
         </header>
 
         {active === "dashboard" && <Dashboard data={filtered} summary={summary} />}
-        {active === "accounts" && <Accounts accounts={filtered.accounts} onEdit={(row) => openEditor("accounts", row)} />}
-        {active === "personnel" && <PersonnelPage personnel={filtered.personnel} onEdit={(row) => openEditor("personnel", row)} />}
-        {active === "credentials" && <Credentials credentials={filtered.credentials} onEdit={(row) => openEditor("credentials", row)} />}
-        {active === "projects" && <Projects data={filtered} onEdit={(row) => openEditor("projects", row)} />}
-        {active === "inventory" && <Inventory items={filtered.inventory} onEdit={(row) => openEditor("inventory", row)} />}
-        {active === "loans" && <Loans loans={filtered.loans} onEdit={(row) => openEditor("loans", row)} />}
-        {active === "vendors" && <Vendors vendors={filtered.vendors} onEdit={(row) => openEditor("vendors", row)} />}
-        {active === "cases" && <Cases cases={filtered.cases} onEdit={(row) => openEditor("cases", row)} />}
-        {active === "budget" && <Budget items={filtered.budget} onEdit={(row) => openEditor("budget", row)} />}
+        {active === "accounts" && <Accounts accounts={filtered.accounts} onAdd={() => addRow("accounts")} onEdit={(row) => openEditor("accounts", row)} onDelete={(row) => deleteRow("accounts", row)} />}
+        {active === "personnel" && <PersonnelPage personnel={filtered.personnel} onAdd={() => addRow("personnel")} onEdit={(row) => openEditor("personnel", row)} onDelete={(row) => deleteRow("personnel", row)} />}
+        {active === "credentials" && <Credentials credentials={filtered.credentials} onAdd={() => addRow("credentials")} onEdit={(row) => openEditor("credentials", row)} onDelete={(row) => deleteRow("credentials", row)} />}
+        {active === "projects" && <Projects data={filtered} onAdd={() => addRow("projects")} onEdit={(row) => openEditor("projects", row)} onDelete={(row) => deleteRow("projects", row)} />}
+        {active === "inventory" && <Inventory items={filtered.inventory} onAdd={() => addRow("inventory")} onEdit={(row) => openEditor("inventory", row)} onDelete={(row) => deleteRow("inventory", row)} />}
+        {active === "loans" && <Loans loans={filtered.loans} onAdd={() => addRow("loans")} onEdit={(row) => openEditor("loans", row)} onDelete={(row) => deleteRow("loans", row)} />}
+        {active === "vendors" && <Vendors vendors={filtered.vendors} onAdd={() => addRow("vendors")} onEdit={(row) => openEditor("vendors", row)} onDelete={(row) => deleteRow("vendors", row)} />}
+        {active === "cases" && <Cases cases={filtered.cases} onAdd={() => addRow("cases")} onEdit={(row) => openEditor("cases", row)} onDelete={(row) => deleteRow("cases", row)} />}
+        {active === "budget" && <Budget items={filtered.budget} onAdd={() => addRow("budget")} onEdit={(row) => openEditor("budget", row)} onDelete={(row) => deleteRow("budget", row)} />}
         {active === "settings" && <SettingsPanel settings={settings} setSettings={setSettings} onRefresh={refresh} />}
         {editor && <EditorModal editor={editor} onClose={() => setEditor(null)} onSave={saveEditor} />}
       </main>
@@ -612,7 +661,7 @@ function Dashboard({ data, summary }: { data: ResourceData; summary: ReturnType<
   );
 }
 
-function Accounts({ accounts, onEdit }: { accounts: Account[]; onEdit: (row: Account) => void }) {
+function Accounts({ accounts, onAdd, onEdit, onDelete }: { accounts: Account[]; onAdd: () => void; onEdit: (row: Account) => void; onDelete: (row: Account) => void }) {
   const managers = accounts.filter((account) => account.role === "manager");
   const staff = accounts.filter((account) => account.role === "staff");
 
@@ -624,7 +673,7 @@ function Accounts({ accounts, onEdit }: { accounts: Account[]; onEdit: (row: Acc
         <Metric icon={UsersRound} label="同仁" value={staff.length} />
       </div>
 
-      <Panel title="帳號管理" action={<ExportButton rows={accounts} filename="accounts.csv" />}>
+      <Panel title="帳號管理" action={<PanelActions onAdd={onAdd} rows={accounts} filename="accounts.csv" />}>
         <DataTable
           columns={["姓名", "Email", "角色", "部門", "狀態", "備註", "操作"]}
           rows={accounts.map((account) => [
@@ -634,7 +683,7 @@ function Accounts({ accounts, onEdit }: { accounts: Account[]; onEdit: (row: Acc
             account.department,
             account.status,
             account.note,
-            <EditButton onClick={() => onEdit(account)} />,
+            <RowActions onEdit={() => onEdit(account)} onDelete={() => onDelete(account)} />,
           ])}
         />
       </Panel>
@@ -642,7 +691,7 @@ function Accounts({ accounts, onEdit }: { accounts: Account[]; onEdit: (row: Acc
   );
 }
 
-function PersonnelPage({ personnel, onEdit }: { personnel: Personnel[]; onEdit: (row: Personnel) => void }) {
+function PersonnelPage({ personnel, onAdd, onEdit, onDelete }: { personnel: Personnel[]; onAdd: () => void; onEdit: (row: Personnel) => void; onDelete: (row: Personnel) => void }) {
   const byKind = Object.entries(groupBy(personnel, (person) => person.kind || "未分類"));
   const activeCount = personnel.filter((person) => !person.status.includes("停用") && !person.status.includes("結束")).length;
   const monthlyEstimate = personnel.reduce((sum, person) => sum + person.hourlyRate * 80, 0);
@@ -670,7 +719,7 @@ function PersonnelPage({ personnel, onEdit }: { personnel: Personnel[]; onEdit: 
         })}
       </div>
 
-      <Panel title="派遣人員 / 工讀生" action={<ExportButton rows={personnel} filename="personnel.csv" />}>
+      <Panel title="派遣人員 / 工讀生" action={<PanelActions onAdd={onAdd} rows={personnel} filename="personnel.csv" />}>
         <DataTable
           columns={["姓名/單位", "項目", "區域", "管理者", "電話", "Email", "狀態", "期間", "時薪/單價", "備註", "操作"]}
           rows={personnel.map((person) => [
@@ -684,7 +733,7 @@ function PersonnelPage({ personnel, onEdit }: { personnel: Personnel[]; onEdit: 
             `${person.startDate || "未定"} → ${person.endDate || "未定"}`,
             person.hourlyRate ? money(person.hourlyRate) : "",
             person.note,
-            <EditButton onClick={() => onEdit(person)} />,
+            <RowActions onEdit={() => onEdit(person)} onDelete={() => onDelete(person)} />,
           ])}
         />
       </Panel>
@@ -692,9 +741,9 @@ function PersonnelPage({ personnel, onEdit }: { personnel: Personnel[]; onEdit: 
   );
 }
 
-function Credentials({ credentials, onEdit }: { credentials: CompanyCredential[]; onEdit: (row: CompanyCredential) => void }) {
+function Credentials({ credentials, onAdd, onEdit, onDelete }: { credentials: CompanyCredential[]; onAdd: () => void; onEdit: (row: CompanyCredential) => void; onDelete: (row: CompanyCredential) => void }) {
   return (
-    <Panel title="公司帳密大全" action={<ExportButton rows={credentials} filename="credentials.csv" />}>
+    <Panel title="公司帳密大全" action={<PanelActions onAdd={onAdd} rows={credentials} filename="credentials.csv" />}>
       <DataTable
         columns={["系統名稱", "網址", "帳號", "密碼", "期間", "管理者", "備註", "操作"]}
         rows={credentials.map((credential) => [
@@ -705,16 +754,19 @@ function Credentials({ credentials, onEdit }: { credentials: CompanyCredential[]
           credential.period,
           credential.manager,
           credential.note,
-          <EditButton onClick={() => onEdit(credential)} />,
+          <RowActions onEdit={() => onEdit(credential)} onDelete={() => onDelete(credential)} />,
         ])}
       />
     </Panel>
   );
 }
 
-function Projects({ data, onEdit }: { data: ResourceData; onEdit: (row: Project) => void }) {
+function Projects({ data, onAdd, onEdit, onDelete }: { data: ResourceData; onAdd: () => void; onEdit: (row: Project) => void; onDelete: (row: Project) => void }) {
   return (
     <section className="view-stack">
+      <div className="page-actions">
+        <AddButton onClick={onAdd} />
+      </div>
       <div className="project-grid">
         {data.projects.map((project) => {
           const spent = data.budget
@@ -730,7 +782,7 @@ function Projects({ data, onEdit }: { data: ResourceData; onEdit: (row: Project)
                 </div>
                 <div className="card-actions">
                   <StatusBadge status={project.status} />
-                  <EditButton onClick={() => onEdit(project)} />
+                  <RowActions onEdit={() => onEdit(project)} onDelete={() => onDelete(project)} />
                 </div>
               </div>
               <p>{project.description || "尚無說明"}</p>
@@ -752,7 +804,7 @@ function Projects({ data, onEdit }: { data: ResourceData; onEdit: (row: Project)
   );
 }
 
-function Inventory({ items, onEdit }: { items: InventoryItem[]; onEdit: (row: InventoryItem) => void }) {
+function Inventory({ items, onAdd, onEdit, onDelete }: { items: InventoryItem[]; onAdd: () => void; onEdit: (row: InventoryItem) => void; onDelete: (row: InventoryItem) => void }) {
   const grouped = Object.entries(groupBy(items, (item) => item.category || "未分類")).sort(([a], [b]) => a.localeCompare(b, "zh-Hant"));
 
   return (
@@ -774,7 +826,7 @@ function Inventory({ items, onEdit }: { items: InventoryItem[]; onEdit: (row: In
         })}
       </div>
 
-      <Panel title="物資清單" action={<ExportButton rows={items} filename="inventory.csv" />}>
+      <Panel title="物資清單" action={<PanelActions onAdd={onAdd} rows={items} filename="inventory.csv" />}>
         <DataTable
           columns={["名稱", "類別", "管理者", "總量", "借出", "可借", "位置", "備註", "操作"]}
           rows={items.map((item) => [
@@ -786,7 +838,7 @@ function Inventory({ items, onEdit }: { items: InventoryItem[]; onEdit: (row: In
             Math.max(0, item.quantity - item.borrowed),
             item.location,
             item.note,
-            <EditButton onClick={() => onEdit(item)} />,
+            <RowActions onEdit={() => onEdit(item)} onDelete={() => onDelete(item)} />,
           ])}
         />
       </Panel>
@@ -794,9 +846,9 @@ function Inventory({ items, onEdit }: { items: InventoryItem[]; onEdit: (row: In
   );
 }
 
-function Loans({ loans, onEdit }: { loans: Loan[]; onEdit: (row: Loan) => void }) {
+function Loans({ loans, onAdd, onEdit, onDelete }: { loans: Loan[]; onAdd: () => void; onEdit: (row: Loan) => void; onDelete: (row: Loan) => void }) {
   return (
-    <Panel title="借用紀錄" action={<ExportButton rows={loans} filename="loans.csv" />}>
+    <Panel title="借用紀錄" action={<PanelActions onAdd={onAdd} rows={loans} filename="loans.csv" />}>
       <DataTable
         columns={["用途", "借用人", "狀態", "預計", "借出", "歸還", "項目", "操作"]}
         rows={loans.map((loan) => [
@@ -807,44 +859,52 @@ function Loans({ loans, onEdit }: { loans: Loan[]; onEdit: (row: Loan) => void }
           loan.borrowedAt,
           loan.returnedAt,
           loan.items,
-          <EditButton onClick={() => onEdit(loan)} />,
+          <RowActions onEdit={() => onEdit(loan)} onDelete={() => onDelete(loan)} />,
         ])}
       />
     </Panel>
   );
 }
 
-function Vendors({ vendors, onEdit }: { vendors: Vendor[]; onEdit: (row: Vendor) => void }) {
+function Vendors({ vendors, onAdd, onEdit, onDelete }: { vendors: Vendor[]; onAdd: () => void; onEdit: (row: Vendor) => void; onDelete: (row: Vendor) => void }) {
   return (
-    <section className="card-grid">
-      {vendors.map((vendor) => (
-        <article className="info-card" key={vendor.id}>
-          <div className="card-heading">
-            <div>
-              <span className="code">{vendor.type || "未分類"}</span>
-              <h2>{vendor.name}</h2>
+    <section className="view-stack">
+      <div className="page-actions">
+        <AddButton onClick={onAdd} />
+      </div>
+      <div className="card-grid">
+        {vendors.map((vendor) => (
+          <article className="info-card" key={vendor.id}>
+            <div className="card-heading">
+              <div>
+                <span className="code">{vendor.type || "未分類"}</span>
+                <h2>{vendor.name}</h2>
+              </div>
+              <div className="card-actions">
+                <UsersRound size={18} />
+                <RowActions onEdit={() => onEdit(vendor)} onDelete={() => onDelete(vendor)} />
+              </div>
             </div>
-            <div className="card-actions">
-              <UsersRound size={18} />
-              <EditButton onClick={() => onEdit(vendor)} />
+            <p>{vendor.note || "尚無備註"}</p>
+            <div className="meta-grid">
+              <span>聯絡人：{vendor.contact || "未填"}</span>
+              <span>電話：{vendor.phone || "未填"}</span>
+              <span>Email：{vendor.email || "未填"}</span>
             </div>
-          </div>
-          <p>{vendor.note || "尚無備註"}</p>
-          <div className="meta-grid">
-            <span>聯絡人：{vendor.contact || "未填"}</span>
-            <span>電話：{vendor.phone || "未填"}</span>
-            <span>Email：{vendor.email || "未填"}</span>
-          </div>
-        </article>
-      ))}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
 
-function Cases({ cases, onEdit }: { cases: CaseStudy[]; onEdit: (row: CaseStudy) => void }) {
+function Cases({ cases, onAdd, onEdit, onDelete }: { cases: CaseStudy[]; onAdd: () => void; onEdit: (row: CaseStudy) => void; onDelete: (row: CaseStudy) => void }) {
   const grouped = groupBy(cases, (item) => String(item.year || "未指定"));
   return (
     <section className="view-stack">
+      <div className="page-actions">
+        <AddButton onClick={onAdd} />
+      </div>
       {Object.entries(grouped)
         .sort(([a], [b]) => Number(b) - Number(a))
         .map(([year, rows]) => (
@@ -859,7 +919,7 @@ function Cases({ cases, onEdit }: { cases: CaseStudy[]; onEdit: (row: CaseStudy)
                     </div>
                     <div className="card-actions">
                       <FileText size={18} />
-                      <EditButton onClick={() => onEdit(item)} />
+                      <RowActions onEdit={() => onEdit(item)} onDelete={() => onDelete(item)} />
                     </div>
                   </div>
                   <p>{item.description || "尚無說明"}</p>
@@ -877,9 +937,9 @@ function Cases({ cases, onEdit }: { cases: CaseStudy[]; onEdit: (row: CaseStudy)
   );
 }
 
-function Budget({ items, onEdit }: { items: BudgetItem[]; onEdit: (row: BudgetItem) => void }) {
+function Budget({ items, onAdd, onEdit, onDelete }: { items: BudgetItem[]; onAdd: () => void; onEdit: (row: BudgetItem) => void; onDelete: (row: BudgetItem) => void }) {
   return (
-    <Panel title="預算結算" action={<ExportButton rows={items} filename="budget.csv" />}>
+    <Panel title="預算結算" action={<PanelActions onAdd={onAdd} rows={items} filename="budget.csv" />}>
       <DataTable
         columns={["專案", "類型", "項目", "規劃金額", "實際金額", "已付款/收款", "操作"]}
         rows={items.map((item) => [
@@ -889,7 +949,7 @@ function Budget({ items, onEdit }: { items: BudgetItem[]; onEdit: (row: BudgetIt
           money(item.planned),
           money(item.actual),
           item.paid ? "是" : "否",
-          <EditButton onClick={() => onEdit(item)} />,
+          <RowActions onEdit={() => onEdit(item)} onDelete={() => onDelete(item)} />,
         ])}
       />
     </Panel>
@@ -971,6 +1031,40 @@ function EditButton({ onClick }: { onClick: () => void }) {
     <button className="icon-button small" onClick={onClick} aria-label="編輯" title="編輯">
       <Pencil size={15} />
     </button>
+  );
+}
+
+function DeleteButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="icon-button small danger" onClick={onClick} aria-label="刪除" title="刪除">
+      <Trash2 size={15} />
+    </button>
+  );
+}
+
+function AddButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="primary-button" onClick={onClick}>
+      <Plus size={16} /> 新增
+    </button>
+  );
+}
+
+function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div className="row-actions">
+      <EditButton onClick={onEdit} />
+      <DeleteButton onClick={onDelete} />
+    </div>
+  );
+}
+
+function PanelActions({ onAdd, rows, filename }: { onAdd: () => void; rows: unknown[]; filename: string }) {
+  return (
+    <div className="panel-actions">
+      <AddButton onClick={onAdd} />
+      <ExportButton rows={rows} filename={filename} />
+    </div>
   );
 }
 
@@ -1353,6 +1447,120 @@ function mergeLocalEdits(data: ResourceData): ResourceData {
 
 function persistLocalEdits(data: ResourceData) {
   localStorage.setItem("resource-local-edits", JSON.stringify(data));
+}
+
+function isExistingRow(data: ResourceData, key: ResourceKey, row: ResourceRow) {
+  const rowId = (row as { id: string }).id;
+  return data[key].some((item) => (item as { id: string }).id === rowId);
+}
+
+async function postSheetMutation(endpoint: string, mutation: SheetMutation) {
+  const response = await fetch(endpoint.trim(), {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(mutation),
+  });
+  return response;
+}
+
+function createBlankRow(key: ResourceKey): ResourceRow {
+  const id = `${key}-${Date.now()}`;
+  const rows: Record<ResourceKey, ResourceRow> = {
+    projects: {
+      id,
+      code: "",
+      name: "新增專案",
+      client: "",
+      status: "planning",
+      owner: "",
+      startDate: "",
+      endDate: "",
+      budget: 0,
+      description: "",
+    },
+    inventory: {
+      id,
+      name: "新增物資",
+      category: "未分類",
+      manager: "",
+      quantity: 0,
+      borrowed: 0,
+      location: "",
+      note: "",
+    },
+    loans: {
+      id,
+      purpose: "新增借用",
+      borrower: "",
+      status: "pending",
+      plannedAt: "",
+      borrowedAt: "",
+      returnedAt: "",
+      items: "",
+    },
+    vendors: {
+      id,
+      name: "新增廠商",
+      type: "",
+      contact: "",
+      phone: "",
+      email: "",
+      note: "",
+    },
+    cases: {
+      id,
+      title: "新增案例",
+      type: "",
+      year: new Date().getFullYear(),
+      fileUrl: "",
+      description: "",
+    },
+    budget: {
+      id,
+      projectId: "",
+      projectName: "",
+      type: "expense",
+      planned: 0,
+      actual: 0,
+      paid: false,
+      item: "新增項目",
+    },
+    accounts: {
+      id,
+      name: "新增帳號",
+      email: "",
+      role: "staff",
+      department: "",
+      status: "啟用",
+      note: "",
+    },
+    personnel: {
+      id,
+      name: "新增人員",
+      kind: "工讀生",
+      area: "",
+      manager: "",
+      phone: "",
+      email: "",
+      status: "待排班",
+      startDate: "",
+      endDate: "",
+      hourlyRate: 0,
+      note: "",
+    },
+    credentials: {
+      id,
+      name: "新增系統",
+      url: "",
+      account: "",
+      password: "",
+      period: "",
+      manager: "",
+      note: "",
+    },
+  };
+  return rows[key];
 }
 
 function groupBy<T>(rows: T[], keyer: (row: T) => string) {

@@ -252,6 +252,10 @@ button {
   min-height: 32px;
 }
 
+.icon-button.danger {
+  color: #9b2f28;
+}
+
 .primary-button {
   background: #1f6f62;
   color: white;
@@ -260,6 +264,18 @@ button {
 
 .secondary-button {
   min-height: 34px;
+}
+
+.panel-actions,
+.page-actions,
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-actions {
+  justify-content: flex-end;
 }
 
 .view-stack,

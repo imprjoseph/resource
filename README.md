@@ -40,4 +40,16 @@ npm run dev
 
 ## 寫入資料
 
-目前已保留 Apps Script 寫入端點設定欄位。讀取資料可直接使用 Google Sheet 發佈 CSV；若要新增、編輯、刪除資料，建議建立 Google Apps Script Web App 來處理權限與寫入。
+網站已支援新增、編輯、刪除資料。若「設定」頁有填 Apps Script 寫入端點，操作會同步送到 Google Sheet；若未填，資料會先存在瀏覽器本機。
+
+建立 Apps Script Web App：
+
+1. 開啟 Google Sheet `resource`。
+2. 選單進入「擴充功能」→「Apps Script」。
+3. 貼上 `google-apps-script/resource-webapp.gs` 的內容。
+4. 按「部署」→「新增部署作業」。
+5. 類型選「網頁應用程式」。
+6. 執行身分選「我」。
+7. 存取權可先選「任何人」或依公司權限設定。
+8. 複製 Web App URL。
+9. 回到網站「設定」頁，把 URL 貼到「Apps Script 寫入端點」後按儲存。
