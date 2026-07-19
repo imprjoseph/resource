@@ -266,6 +266,12 @@ button {
   min-height: 34px;
 }
 
+.secondary-button.compact {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
 .panel-actions,
 .page-actions,
 .row-actions {
@@ -632,6 +638,24 @@ td {
   color: #1f6f62;
   font-weight: 700;
   text-decoration: none;
+}
+
+.password-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 170px;
+}
+
+.password-value,
+.password-mask {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  white-space: nowrap;
+}
+
+.password-mask {
+  color: #667985;
+  letter-spacing: 1px;
 }
 
 .modal-backdrop {

@@ -11,6 +11,8 @@ import {
   CircleDollarSign,
   ClipboardList,
   Download,
+  Eye,
+  EyeOff,
   ExternalLink,
   FileText,
   FolderKanban,
@@ -744,6 +746,12 @@ function PersonnelPage({ personnel, onAdd, onEdit, onDelete }: { personnel: Pers
 }
 
 function Credentials({ credentials, onAdd, onEdit, onDelete }: { credentials: CompanyCredential[]; onAdd: () => void; onEdit: (row: CompanyCredential) => void; onDelete: (row: CompanyCredential) => void }) {
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+
+  function togglePassword(id: string) {
+    setVisiblePasswords((current) => ({ ...current, [id]: !current[id] }));
+  }
+
   return (
     <Panel title="公司帳密大全" action={<PanelActions onAdd={onAdd} rows={credentials} filename="credentials.csv" />}>
       <DataTable
@@ -752,7 +760,11 @@ function Credentials({ credentials, onAdd, onEdit, onDelete }: { credentials: Co
           credential.name,
           credential.url ? <a className="text-link" href={credential.url} target="_blank" rel="noreferrer">開啟</a> : "",
           credential.account,
-          credential.password,
+          <PasswordCell
+            password={credential.password}
+            visible={Boolean(visiblePasswords[credential.id])}
+            onToggle={() => togglePassword(credential.id)}
+          />,
           credential.period,
           credential.manager,
           credential.note,
@@ -1057,6 +1069,18 @@ function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => 
     <div className="row-actions">
       <EditButton onClick={onEdit} />
       <DeleteButton onClick={onDelete} />
+    </div>
+  );
+}
+
+function PasswordCell({ password, visible, onToggle }: { password: string; visible: boolean; onToggle: () => void }) {
+  return (
+    <div className="password-cell">
+      <span className={visible ? "password-value" : "password-mask"}>{visible ? password || "未填" : "••••••••"}</span>
+      <button className="secondary-button compact" onClick={onToggle}>
+        {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+        {visible ? "隱藏" : "查看"}
+      </button>
     </div>
   );
 }
