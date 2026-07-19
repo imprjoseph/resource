@@ -25,13 +25,14 @@ import {
   Save,
   Search,
   Settings,
+  ScrollText,
   Trash2,
   UsersRound,
   WalletCards,
 } from "lucide-react";
 import "./styles.css";
 
-type SheetKey = "projects" | "inventory" | "loans" | "vendors" | "cases" | "budget" | "accounts" | "personnel" | "credentials";
+type SheetKey = "projects" | "inventory" | "loans" | "vendors" | "cases" | "budget" | "accounts" | "personnel" | "credentials" | "sops";
 
 type SheetSettings = Record<SheetKey, string> & {
   writeEndpoint: string;
@@ -138,6 +139,18 @@ type CompanyCredential = {
   note: string;
 };
 
+type SopItem = {
+  id: string;
+  title: string;
+  category: string;
+  owner: string;
+  version: string;
+  status: string;
+  updatedAt: string;
+  fileUrl: string;
+  description: string;
+};
+
 type ResourceData = {
   projects: Project[];
   inventory: InventoryItem[];
@@ -148,6 +161,7 @@ type ResourceData = {
   accounts: Account[];
   personnel: Personnel[];
   credentials: CompanyCredential[];
+  sops: SopItem[];
 };
 
 type ResourceKey = keyof ResourceData;
@@ -202,6 +216,7 @@ const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "accounts", label: "帳號", hint: "id, name, email, role, department, status, note" },
   { key: "personnel", label: "派遣/工讀", hint: "id, name, kind, area, manager, phone, email, status, startDate, endDate, hourlyRate, note" },
   { key: "credentials", label: "帳密大全", hint: "id, name, url, account, password, period, manager, note" },
+  { key: "sops", label: "SOP", hint: "id, title, category, owner, version, status, updatedAt, fileUrl, description" },
 ];
 
 const emptySettings: SheetSettings = {
@@ -214,6 +229,7 @@ const emptySettings: SheetSettings = {
   accounts: "",
   personnel: "",
   credentials: "",
+  sops: "",
   writeEndpoint: defaultWriteEndpoint,
 };
 
@@ -299,6 +315,10 @@ const sampleData: ResourceData = {
     { id: "cred-001", name: "GitHub", url: "https://github.com/imprjoseph/resource", account: "imprjoseph", password: "請改填正式密碼", period: "長期", manager: "林怡君", note: "資源管理網站 repo" },
     { id: "cred-002", name: "Google Sheet", url: "https://drive.google.com/", account: "admin@impr.com.tw", password: "請改填正式密碼", period: "2026", manager: "黃郁婷", note: "資料表與雲端資料夾" },
   ],
+  sops: [
+    { id: "sop-001", title: "物資借用流程", category: "物資管理", owner: "王佳玲", version: "v1.0", status: "啟用", updatedAt: "2026-07-19", fileUrl: "", description: "申請、核准、借出、歸還與盤點流程。" },
+    { id: "sop-002", title: "派遣/工讀排班流程", category: "人員管理", owner: "黃郁婷", version: "v1.0", status: "草稿", updatedAt: "2026-07-19", fileUrl: "", description: "排班、簽到、時數確認與請款流程。" },
+  ],
 };
 
 const editorLabels: Record<ResourceKey, string> = {
@@ -311,6 +331,7 @@ const editorLabels: Record<ResourceKey, string> = {
   accounts: "帳號",
   personnel: "派遣/工讀",
   credentials: "帳密大全",
+  sops: "SOP",
 };
 
 const editorFields: Record<ResourceKey, FormField[]> = {
@@ -396,6 +417,16 @@ const editorFields: Record<ResourceKey, FormField[]> = {
     { key: "period", label: "期間" },
     { key: "manager", label: "管理者" },
     { key: "note", label: "備註" },
+  ],
+  sops: [
+    { key: "title", label: "SOP 名稱" },
+    { key: "category", label: "類別" },
+    { key: "owner", label: "負責人" },
+    { key: "version", label: "版本" },
+    { key: "status", label: "狀態" },
+    { key: "updatedAt", label: "更新日期" },
+    { key: "fileUrl", label: "文件網址" },
+    { key: "description", label: "說明" },
   ],
 };
 
@@ -509,6 +540,7 @@ function App() {
     { id: "accounts", label: "帳號", icon: IdCard },
     { id: "personnel", label: "派遣/工讀", icon: BriefcaseBusiness },
     { id: "credentials", label: "帳密大全", icon: KeyRound },
+    { id: "sops", label: "SOP", icon: ScrollText },
     { id: "projects", label: "專案", icon: FolderKanban },
     { id: "inventory", label: "物資", icon: Boxes },
     { id: "loans", label: "借用", icon: ClipboardList },
@@ -569,6 +601,7 @@ function App() {
         {active === "accounts" && <Accounts accounts={filtered.accounts} onAdd={() => addRow("accounts")} onEdit={(row) => openEditor("accounts", row)} onDelete={(row) => deleteRow("accounts", row)} />}
         {active === "personnel" && <PersonnelPage personnel={filtered.personnel} onAdd={() => addRow("personnel")} onEdit={(row) => openEditor("personnel", row)} onDelete={(row) => deleteRow("personnel", row)} />}
         {active === "credentials" && <Credentials credentials={filtered.credentials} onAdd={() => addRow("credentials")} onEdit={(row) => openEditor("credentials", row)} onDelete={(row) => deleteRow("credentials", row)} />}
+        {active === "sops" && <Sops sops={filtered.sops} onAdd={() => addRow("sops")} onEdit={(row) => openEditor("sops", row)} onDelete={(row) => deleteRow("sops", row)} />}
         {active === "projects" && <Projects data={filtered} onAdd={() => addRow("projects")} onEdit={(row) => openEditor("projects", row)} onDelete={(row) => deleteRow("projects", row)} />}
         {active === "inventory" && <Inventory items={filtered.inventory} onAdd={() => addRow("inventory")} onEdit={(row) => openEditor("inventory", row)} onDelete={(row) => deleteRow("inventory", row)} />}
         {active === "loans" && <Loans loans={filtered.loans} onAdd={() => addRow("loans")} onEdit={(row) => openEditor("loans", row)} onDelete={(row) => deleteRow("loans", row)} />}
@@ -772,6 +805,43 @@ function Credentials({ credentials, onAdd, onEdit, onDelete }: { credentials: Co
         ])}
       />
     </Panel>
+  );
+}
+
+function Sops({ sops, onAdd, onEdit, onDelete }: { sops: SopItem[]; onAdd: () => void; onEdit: (row: SopItem) => void; onDelete: (row: SopItem) => void }) {
+  const grouped = Object.entries(groupBy(sops, (sop) => sop.category || "未分類"));
+
+  return (
+    <section className="view-stack">
+      <div className="category-strip">
+        {grouped.map(([category, rows]) => (
+          <article className="category-card" key={category}>
+            <div>
+              <span>{category}</span>
+              <strong>{rows.length}</strong>
+            </div>
+            <small>負責人：{Array.from(new Set(rows.map((sop) => sop.owner).filter(Boolean))).join("、") || "未指定"}</small>
+          </article>
+        ))}
+      </div>
+
+      <Panel title="SOP 清單" action={<PanelActions onAdd={onAdd} rows={sops} filename="sops.csv" />}>
+        <DataTable
+          columns={["SOP 名稱", "類別", "負責人", "版本", "狀態", "更新日期", "文件", "說明", "操作"]}
+          rows={sops.map((sop) => [
+            sop.title,
+            sop.category,
+            sop.owner,
+            sop.version,
+            sop.status,
+            sop.updatedAt,
+            sop.fileUrl ? <a className="text-link" href={sop.fileUrl} target="_blank" rel="noreferrer">開啟</a> : "",
+            sop.description,
+            <RowActions onEdit={() => onEdit(sop)} onDelete={() => onDelete(sop)} />,
+          ])}
+        />
+      </Panel>
+    </section>
   );
 }
 
@@ -1209,7 +1279,7 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
 async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
   if (!hasAnySheet(settings)) return sampleData;
 
-  const [projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials] = await Promise.all([
+  const [projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops] = await Promise.all([
     loadCsv(settings.projects, sampleData.projects, mapProject),
     loadCsv(settings.inventory, sampleData.inventory, mapInventory),
     loadCsv(settings.loans, sampleData.loans, mapLoan),
@@ -1219,9 +1289,10 @@ async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
     loadCsv(settings.accounts, sampleData.accounts, mapAccount),
     loadCsv(settings.personnel, sampleData.personnel, mapPersonnel),
     loadCsv(settings.credentials, sampleData.credentials, mapCredential),
+    loadCsv(settings.sops, sampleData.sops, mapSop),
   ]);
 
-  return { projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials };
+  return { projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops };
 }
 
 async function loadCsv<T>(url: string, fallback: T[], mapper: (row: Record<string, string>, index: number) => T): Promise<T[]> {
@@ -1391,6 +1462,20 @@ function mapCredential(row: Record<string, string>, index: number): CompanyCrede
   };
 }
 
+function mapSop(row: Record<string, string>, index: number): SopItem {
+  return {
+    id: pick(row, ["id", "編號"]) || `sop-${index + 1}`,
+    title: pick(row, ["title", "標題", "sop名稱", "名稱"]),
+    category: pick(row, ["category", "類別", "分類"]) || "未分類",
+    owner: pick(row, ["owner", "負責人", "管理者"]),
+    version: pick(row, ["version", "版本"]) || "v1.0",
+    status: pick(row, ["status", "狀態"]) || "草稿",
+    updatedAt: pick(row, ["updatedat", "updated_at", "更新日期", "日期"]),
+    fileUrl: pick(row, ["fileurl", "file_url", "文件網址", "檔案", "連結"]),
+    description: pick(row, ["description", "說明", "備註"]),
+  };
+}
+
 function pick(row: Record<string, string>, keys: string[]) {
   for (const key of keys) {
     const value = row[normalizeKey(key)];
@@ -1460,6 +1545,7 @@ function filterData(data: ResourceData, query: string): ResourceData {
     accounts: data.accounts.filter((item) => includes(Object.values(item))),
     personnel: data.personnel.filter((item) => includes(Object.values(item))),
     credentials: data.credentials.filter((item) => includes(Object.values(item))),
+    sops: data.sops.filter((item) => includes(Object.values(item))),
   };
 }
 
@@ -1585,6 +1671,17 @@ function createBlankRow(key: ResourceKey): ResourceRow {
       period: "",
       manager: "",
       note: "",
+    },
+    sops: {
+      id,
+      title: "新增 SOP",
+      category: "未分類",
+      owner: "",
+      version: "v1.0",
+      status: "草稿",
+      updatedAt: new Date().toISOString().slice(0, 10),
+      fileUrl: "",
+      description: "",
     },
   };
   return rows[key];

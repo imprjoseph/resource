@@ -24,6 +24,7 @@ npm run dev
 - 帳號：`id, name, email, role, department, status, note`
 - 派遣/工讀：`id, name, kind, area, manager, phone, email, status, startDate, endDate, hourlyRate, note`
 - 帳密大全：`id, name, url, account, password, period, manager, note`
+- SOP：`id, title, category, owner, version, status, updatedAt, fileUrl, description`
 
 `status` 可用 `planning`、`in_progress`、`on_hold`、`completed`、`cancelled`，或直接用中文狀態。借用狀態可用 `pending`、`borrowed`、`returned`，或中文。
 
