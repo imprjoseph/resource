@@ -188,6 +188,8 @@ const demoAdmin = {
   name: "管理者",
 };
 
+const defaultWriteEndpoint = "https://script.google.com/macros/s/AKfycbznOGudX0_IMjU088vgWwl-lLRmQtYYd7IqMwZJz4yO36RLSjz3c6xZAjpzN0L1MhmVMA/exec";
+
 const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "projects", label: "專案", hint: "id, code, name, client, status, owner, startDate, endDate, budget, description" },
   { key: "inventory", label: "物資", hint: "id, name, category, manager, quantity, borrowed, location, note" },
@@ -210,7 +212,7 @@ const emptySettings: SheetSettings = {
   accounts: "",
   personnel: "",
   credentials: "",
-  writeEndpoint: "",
+  writeEndpoint: defaultWriteEndpoint,
 };
 
 const sampleData: ResourceData = {
@@ -1165,7 +1167,8 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
   const [settings, setSettingsState] = useState<SheetSettings>(() => {
     try {
       const raw = localStorage.getItem("resource-sheet-settings");
-      return raw ? { ...emptySettings, ...JSON.parse(raw) } : emptySettings;
+      const parsed = raw ? { ...emptySettings, ...JSON.parse(raw) } : emptySettings;
+      return parsed.writeEndpoint ? parsed : { ...parsed, writeEndpoint: defaultWriteEndpoint };
     } catch {
       return emptySettings;
     }
