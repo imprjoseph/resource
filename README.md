@@ -32,6 +32,9 @@ npm run dev
 
 派遣/工讀的 `area` 是「區域」。舊資料若仍使用「部門」欄位，網站也會相容讀取。
 
+SOP 附件會上傳到 Google Drive 資料夾 `resource-sop-files`：
+https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT
+
 ## GitHub Pages 部署
 
 1. 將專案推到 GitHub 的 `main` 分支。
@@ -54,3 +57,5 @@ npm run dev
 7. 存取權可先選「任何人」或依公司權限設定。
 8. 複製 Web App URL。
 9. 回到網站「設定」頁，把 URL 貼到「Apps Script 寫入端點」後按儲存。
+
+若更新 `google-apps-script/resource-webapp.gs`，需要到 Apps Script 重新部署新版 Web App。SOP 夾檔功能需要新版 Apps Script，才會把檔案存到 `resource-sop-files` 並回寫 `sops.fileUrl`。

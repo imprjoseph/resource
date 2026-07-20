@@ -16,6 +16,7 @@ import {
   ExternalLink,
   FileText,
   FolderKanban,
+  FolderOpen,
   IdCard,
   KeyRound,
   LogOut,
@@ -184,6 +185,17 @@ type SheetMutation = {
   row: ResourceRow;
 };
 
+type SopAttachmentMutation = {
+  action: "uploadSopFile";
+  sheet: "sops";
+  row: SopItem;
+  file: {
+    name: string;
+    mimeType: string;
+    data: string;
+  };
+};
+
 const statusLabels: Record<string, string> = {
   planning: "規劃中",
   in_progress: "進行中",
@@ -205,6 +217,8 @@ const demoAdmin = {
 };
 
 const defaultWriteEndpoint = "https://script.google.com/macros/s/AKfycbznOGudX0_IMjU088vgWwl-lLRmQtYYd7IqMwZJz4yO36RLSjz3c6xZAjpzN0L1MhmVMA/exec";
+const sopDriveFolderUrl = "https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT";
+const maxSopAttachmentSize = 10 * 1024 * 1024;
 
 const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "projects", label: "專案", hint: "id, code, name, client, status, owner, startDate, endDate, budget, description" },
@@ -484,7 +498,7 @@ function App() {
     setEditor({ key, row: createBlankRow(key) });
   }
 
-  async function saveEditor(nextRow: ResourceRow) {
+  async function saveEditor(nextRow: ResourceRow, attachmentFile?: File | null) {
     const key = editor!.key;
     const action = isExistingRow(data, key, nextRow) ? "update" : "create";
     setData((current) => {
@@ -502,7 +516,12 @@ function App() {
     if (settings.writeEndpoint.trim()) {
       try {
         await postSheetMutation(settings.writeEndpoint, { action, sheet: key, row: nextRow });
-        setMessage("已同步送出到 Google Sheet");
+        if (key === "sops" && attachmentFile) {
+          await postSopAttachment(settings.writeEndpoint, nextRow as SopItem, attachmentFile);
+          setMessage("已同步 SOP，附件已送到 Google Drive；重新整理後會顯示檔案連結");
+        } else {
+          setMessage("已同步送出到 Google Sheet");
+        }
       } catch (error) {
         setMessage(error instanceof Error ? `已先儲存在本機，同步失敗：${error.message}` : "已先儲存在本機，同步失敗");
       }
@@ -825,7 +844,17 @@ function Sops({ sops, onAdd, onEdit, onDelete }: { sops: SopItem[]; onAdd: () =>
         ))}
       </div>
 
-      <Panel title="SOP 清單" action={<PanelActions onAdd={onAdd} rows={sops} filename="sops.csv" />}>
+      <Panel
+        title="SOP 清單"
+        action={
+          <div className="panel-actions">
+            <a className="secondary-button" href={sopDriveFolderUrl} target="_blank" rel="noreferrer">
+              <FolderOpen size={16} /> 附件資料夾
+            </a>
+            <PanelActions onAdd={onAdd} rows={sops} filename="sops.csv" />
+          </div>
+        }
+      >
         <DataTable
           columns={["SOP 名稱", "類別", "負責人", "版本", "狀態", "更新日期", "文件", "說明", "操作"]}
           rows={sops.map((sop) => [
@@ -1164,9 +1193,12 @@ function PanelActions({ onAdd, rows, filename }: { onAdd: () => void; rows: unkn
   );
 }
 
-function EditorModal({ editor, onClose, onSave }: { editor: EditorState; onClose: () => void; onSave: (row: ResourceRow) => void }) {
+function EditorModal({ editor, onClose, onSave }: { editor: EditorState; onClose: () => void; onSave: (row: ResourceRow, attachmentFile?: File | null) => void | Promise<void> }) {
   const [draft, setDraft] = useState<Record<string, unknown>>({ ...(editor.row as Record<string, unknown>) });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState("");
   const fields = editorFields[editor.key];
+  const isSop = editor.key === "sops";
 
   function update(field: FormField, value: string | boolean) {
     setDraft((current) => ({
@@ -1175,9 +1207,23 @@ function EditorModal({ editor, onClose, onSave }: { editor: EditorState; onClose
     }));
   }
 
+  function pickAttachment(file: File | null) {
+    setAttachmentError("");
+    if (!file) {
+      setAttachmentFile(null);
+      return;
+    }
+    if (file.size > maxSopAttachmentSize) {
+      setAttachmentFile(null);
+      setAttachmentError("附件上限為 10MB，請改用較小檔案或直接貼 Google Drive 連結。");
+      return;
+    }
+    setAttachmentFile(file);
+  }
+
   return (
     <div className="modal-backdrop" role="presentation">
-      <form className="modal-card" onSubmit={(event) => { event.preventDefault(); onSave(draft as ResourceRow); }}>
+      <form className="modal-card" onSubmit={(event) => { event.preventDefault(); onSave(draft as ResourceRow, attachmentFile); }}>
         <div className="modal-header">
           <div>
             <h2>編輯{editorLabels[editor.key]}</h2>
@@ -1205,6 +1251,24 @@ function EditorModal({ editor, onClose, onSave }: { editor: EditorState; onClose
             </label>
           ))}
         </div>
+        {isSop && (
+          <div className="attachment-box">
+            <div>
+              <strong>SOP 附件</strong>
+              <p>選擇檔案後儲存，系統會上傳到 Google Drive 的 SOP 附件資料夾。</p>
+              {String(draft.fileUrl ?? "") && (
+                <a className="text-link" href={String(draft.fileUrl)} target="_blank" rel="noreferrer">
+                  <ExternalLink size={15} /> 開啟目前附件
+                </a>
+              )}
+            </div>
+            <label className="file-picker">
+              <input type="file" onChange={(event) => pickAttachment(event.target.files?.[0] ?? null)} />
+              <span>{attachmentFile ? attachmentFile.name : "選擇附件"}</span>
+            </label>
+            {attachmentError && <small className="form-error">{attachmentError}</small>}
+          </div>
+        )}
         <div className="modal-actions">
           <button className="secondary-button" type="button" onClick={onClose}>取消</button>
           <button className="primary-button" type="submit"><Save size={16} /> 儲存</button>
@@ -1575,6 +1639,36 @@ async function postSheetMutation(endpoint: string, mutation: SheetMutation) {
     body: JSON.stringify(mutation),
   });
   return response;
+}
+
+async function postSopAttachment(endpoint: string, row: SopItem, file: File) {
+  const mutation: SopAttachmentMutation = {
+    action: "uploadSopFile",
+    sheet: "sops",
+    row,
+    file: {
+      name: file.name,
+      mimeType: file.type || "application/octet-stream",
+      data: await fileToBase64(file),
+    },
+  };
+
+  const response = await fetch(endpoint.trim(), {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(mutation),
+  });
+  return response;
+}
+
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(reader.error || new Error("檔案讀取失敗"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function createBlankRow(key: ResourceKey): ResourceRow {

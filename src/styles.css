@@ -266,6 +266,10 @@ button {
   min-height: 34px;
 }
 
+a.secondary-button {
+  text-decoration: none;
+}
+
 .secondary-button.compact {
   min-height: 30px;
   padding: 0 9px;
@@ -724,6 +728,56 @@ td {
   gap: 10px;
   padding: 16px 18px 18px;
   border-top: 1px solid #e4ebef;
+}
+
+.attachment-box {
+  display: grid;
+  gap: 12px;
+  margin: 0 18px 18px;
+  padding: 14px;
+  border: 1px solid #dce4e9;
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.attachment-box strong {
+  display: block;
+  font-size: 14px;
+}
+
+.attachment-box p {
+  margin: 4px 0 8px;
+  color: #667985;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.file-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 1px dashed #9aabb5;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #26343c;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.file-picker input {
+  display: none;
+}
+
+.file-picker span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-error {
+  color: #9b2f28;
+  font-weight: 700;
 }
 
 .spin {
