@@ -21,14 +21,14 @@ npm run dev
 - 廠商：`id, name, type, contact, phone, email, note`
 - 案例：`id, title, type, year, fileUrl, description`
 - 預算：`id, projectId, projectName, type, planned, actual, paid, item`
-- 帳號：`id, name, email, role, department, status, note`
+- 帳號：`id, name, email, password, role, department, status, note`
 - 派遣/工讀：`id, name, kind, area, manager, phone, email, status, startDate, endDate, hourlyRate, note`
 - 帳密大全：`id, name, url, account, password, period, manager, note`
 - SOP：`id, title, category, owner, version, status, updatedAt, fileUrl, description`
 
 `status` 可用 `planning`、`in_progress`、`on_hold`、`completed`、`cancelled`，或直接用中文狀態。借用狀態可用 `pending`、`borrowed`、`returned`，或中文。
 
-帳號 `role` 可用 `manager` 或 `staff`，也可填中文「管理者」「同仁」。派遣/工讀 `kind` 可填「派遣人員」或「工讀生」。
+帳號 `role` 可用 `manager` 或 `staff`，也可填中文「管理者」「同仁」。帳號 `password` 未填時會暫時沿用預設密碼 `impr2026`，方便既有資料升級；正式使用前應逐筆改成個別密碼。派遣/工讀 `kind` 可填「派遣人員」或「工讀生」。
 
 為方便後續樞紐分析與圖表統計，網站編輯表單已將狀態、部門、區域、類別、負責人、專案等欄位改為選單；Google Sheet 中原本存在的自訂值也會自動保留在選項中，避免舊資料無法編輯。日期、Email、網址與電話亦使用對應的輸入型態。
 
@@ -39,7 +39,7 @@ https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT
 
 ## 帳號與密碼安全
 
-「帳密大全」會直接顯示帳號，密碼則預設遮蔽並可逐筆查看。請勿將正式密碼放在公開發佈的 CSV、GitHub 原始碼或瀏覽器本機儲存空間；建議只存公司密碼管理器中的項目名稱或連結。GitHub Pages 的前端登入只能作為介面門檻，正式環境仍需在 Apps Script 或其他後端加入身分驗證與寫入授權。
+「帳號」與「帳密大全」會直接顯示帳號，密碼則預設遮蔽並可逐筆查看。請勿將正式密碼放在公開發佈的 CSV、GitHub 原始碼或瀏覽器本機儲存空間；建議只存公司密碼管理器中的項目名稱或連結。GitHub Pages 的前端登入只能作為介面門檻，正式環境仍需在 Apps Script 或其他後端加入身分驗證與寫入授權。
 
 ## GitHub Pages 部署
 

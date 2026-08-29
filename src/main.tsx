@@ -108,6 +108,7 @@ type Account = {
   id: string;
   name: string;
   email: string;
+  password: string;
   role: "manager" | "staff";
   department: string;
   status: string;
@@ -227,7 +228,7 @@ const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "vendors", label: "廠商", hint: "id, name, type, contact, phone, email, note" },
   { key: "cases", label: "案例", hint: "id, title, type, year, fileUrl, description" },
   { key: "budget", label: "預算", hint: "id, projectId, projectName, type, planned, actual, paid, item" },
-  { key: "accounts", label: "帳號", hint: "id, name, email, role, department, status, note" },
+  { key: "accounts", label: "帳號", hint: "id, name, email, password, role, department, status, note" },
   { key: "personnel", label: "派遣/工讀", hint: "id, name, kind, area, manager, phone, email, status, startDate, endDate, hourlyRate, note" },
   { key: "credentials", label: "帳密大全", hint: "id, name, url, account, password, period, manager, note" },
   { key: "sops", label: "SOP", hint: "id, title, category, owner, version, status, updatedAt, fileUrl, description" },
@@ -315,10 +316,10 @@ const sampleData: ResourceData = {
     { id: "b-004", projectId: "p-002", projectName: "年度品牌活動", type: "expense", planned: 520000, actual: 120000, paid: true, item: "場地與工程訂金" },
   ],
   accounts: [
-    { id: "u-001", name: "林怡君", email: "manager01@impr.com.tw", role: "manager", department: "總管理處", status: "啟用", note: "系統管理者" },
-    { id: "u-002", name: "王佳玲", email: "staff01@impr.com.tw", role: "staff", department: "影像部", status: "啟用", note: "物資借用與案例上傳" },
-    { id: "u-003", name: "陳柏宇", email: "staff02@impr.com.tw", role: "staff", department: "行銷部", status: "啟用", note: "專案與廠商維護" },
-    { id: "u-004", name: "黃郁婷", email: "admin@impr.com.tw", role: "manager", department: "行政部", status: "啟用", note: "文具與行政物資管理者" },
+    { id: "u-001", name: "林怡君", email: "manager01@impr.com.tw", password: "impr2026", role: "manager", department: "總管理處", status: "啟用", note: "系統管理者" },
+    { id: "u-002", name: "王佳玲", email: "staff01@impr.com.tw", password: "impr2026", role: "staff", department: "影像部", status: "啟用", note: "物資借用與案例上傳" },
+    { id: "u-003", name: "陳柏宇", email: "staff02@impr.com.tw", password: "impr2026", role: "staff", department: "行銷部", status: "啟用", note: "專案與廠商維護" },
+    { id: "u-004", name: "黃郁婷", email: "admin@impr.com.tw", password: "impr2026", role: "manager", department: "行政部", status: "啟用", note: "文具與行政物資管理者" },
   ],
   personnel: [
     { id: "pt-001", name: "張育瑄", kind: "工讀生", area: "台北", manager: "黃郁婷", phone: "0912-345-678", email: "pt01@impr.com.tw", status: "排班中", startDate: "2026-07-01", endDate: "2026-09-30", hourlyRate: 190, note: "文具盤點、資料建檔" },
@@ -415,6 +416,7 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
   accounts: [
     { key: "name", label: "姓名" },
     { key: "email", label: "Email", type: "email" },
+    { key: "password", label: "密碼" },
     { key: "role", label: "角色", type: "select", options: [{ label: "管理者", value: "manager" }, { label: "同仁", value: "staff" }] },
     { key: "department", label: "部門", type: "select", options: valueOptions(["總管理處", "行政部", "行銷部", "人資部", "影像部", "業務部", "財務部", "資訊部"], data.accounts.map((account) => account.department)) },
     { key: "status", label: "狀態", type: "select", options: valueOptions(["啟用", "停用", "待啟用"], data.accounts.map((account) => account.status)) },
@@ -488,9 +490,13 @@ function App() {
   const filtered = useMemo(() => filterData(data, query), [data, query]);
 
   function handleLogin(email: string, password: string) {
-    if (email.trim().toLowerCase() === demoAdmin.email && password === demoAdmin.password) {
-      setAdminName(demoAdmin.name);
-      localStorage.setItem("resource-admin-session", demoAdmin.name);
+    const normalizedEmail = email.trim().toLowerCase();
+    const account = data.accounts.find((item) => item.email.trim().toLowerCase() === normalizedEmail);
+    const expectedPassword = account?.password || demoAdmin.password;
+    const isActive = account && !["停用", "已停用", "disabled"].includes(account.status.trim().toLowerCase());
+    if (isActive && password === expectedPassword) {
+      setAdminName(account.name);
+      localStorage.setItem("resource-admin-session", account.name);
       return true;
     }
     return false;
@@ -581,7 +587,7 @@ function App() {
   ];
 
   if (!adminName) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage loading={loading} onLogin={handleLogin} />;
   }
 
   return (
@@ -645,7 +651,7 @@ function App() {
   );
 }
 
-function LoginPage({ onLogin }: { onLogin: (email: string, password: string) => boolean }) {
+function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: string, password: string) => boolean }) {
   const [email, setEmail] = useState(demoAdmin.email);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -664,10 +670,10 @@ function LoginPage({ onLogin }: { onLogin: (email: string, password: string) => 
         </div>
         <div>
           <h1>公司資源管理</h1>
-          <p>請使用管理者帳號登入</p>
+          <p>請使用公司帳號登入</p>
         </div>
         <label className="login-field">
-          <span>管理者帳號</span>
+          <span>公司帳號</span>
           <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
         </label>
         <label className="login-field">
@@ -675,8 +681,8 @@ function LoginPage({ onLogin }: { onLogin: (email: string, password: string) => 
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
         </label>
         {error && <div className="login-error">{error}</div>}
-        <button className="primary-button" type="submit">登入</button>
-        <small>測試帳號：admin@impr.com.tw / impr2026</small>
+        <button className="primary-button" type="submit" disabled={loading}>{loading ? "載入帳號中…" : "登入"}</button>
+        <small>管理者：admin@impr.com.tw　同仁：staff01@impr.com.tw　預設密碼：impr2026</small>
       </form>
     </main>
   );
@@ -731,6 +737,11 @@ function Dashboard({ data, summary }: { data: ResourceData; summary: ReturnType<
 function Accounts({ accounts, onAdd, onEdit, onDelete }: { accounts: Account[]; onAdd: () => void; onEdit: (row: Account) => void; onDelete: (row: Account) => void }) {
   const managers = accounts.filter((account) => account.role === "manager");
   const staff = accounts.filter((account) => account.role === "staff");
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+
+  function togglePassword(id: string) {
+    setVisiblePasswords((current) => ({ ...current, [id]: !current[id] }));
+  }
 
   return (
     <section className="view-stack">
@@ -742,10 +753,15 @@ function Accounts({ accounts, onAdd, onEdit, onDelete }: { accounts: Account[]; 
 
       <Panel title="帳號管理" action={<PanelActions onAdd={onAdd} rows={accounts} filename="accounts.csv" />}>
         <DataTable
-          columns={["姓名", "Email", "角色", "部門", "狀態", "備註", "操作"]}
+          columns={["姓名", "Email", "密碼", "角色", "部門", "狀態", "備註", "操作"]}
           rows={accounts.map((account) => [
             account.name,
             account.email,
+            <PasswordCell
+              password={account.password || demoAdmin.password}
+              visible={Boolean(visiblePasswords[account.id])}
+              onToggle={() => togglePassword(account.id)}
+            />,
             account.role === "manager" ? "管理者" : "同仁",
             account.department,
             account.status,
@@ -1511,6 +1527,7 @@ function mapAccount(row: Record<string, string>, index: number): Account {
     id: pick(row, ["id", "編號", "帳號id"]) || `account-${index + 1}`,
     name: pick(row, ["name", "姓名", "名稱"]),
     email: pick(row, ["email", "帳號", "信箱"]),
+    password: pick(row, ["password", "密碼"]),
     role: roleText.includes("管理") || roleText === "manager" || roleText === "admin" ? "manager" : "staff",
     department: pick(row, ["department", "部門", "單位"]),
     status: pick(row, ["status", "狀態"]) || "啟用",
@@ -1760,6 +1777,7 @@ function createBlankRow(key: ResourceKey): ResourceRow {
       id,
       name: "新增帳號",
       email: "",
+      password: "",
       role: "staff",
       department: "",
       status: "啟用",
