@@ -489,12 +489,20 @@ function App() {
   const summary = useMemo(() => buildSummary(data), [data]);
   const filtered = useMemo(() => filterData(data, query), [data, query]);
 
-  function handleLogin(email: string, password: string) {
-    const normalizedEmail = email.trim().toLowerCase();
-    const account = data.accounts.find((item) => item.email.trim().toLowerCase() === normalizedEmail);
+  function handleLogin(identifier: string, password: string) {
+    const normalizedIdentifier = identifier.trim().toLowerCase();
+    const loginAccounts = [
+      ...data.accounts,
+      ...sampleData.accounts.filter((sample) => !data.accounts.some((item) => item.email.trim().toLowerCase() === sample.email.trim().toLowerCase())),
+    ];
+    const account = loginAccounts.find((item) => {
+      const normalizedEmail = item.email.trim().toLowerCase();
+      const emailAccount = normalizedEmail.split("@")[0];
+      return [normalizedEmail, emailAccount, item.id.trim().toLowerCase(), item.name.trim().toLowerCase()].includes(normalizedIdentifier);
+    });
     const expectedPassword = account?.password || demoAdmin.password;
     const isActive = account && !["停用", "已停用", "disabled"].includes(account.status.trim().toLowerCase());
-    if (isActive && password === expectedPassword) {
+    if (isActive && password.trim() === expectedPassword) {
       setAdminName(account.name);
       localStorage.setItem("resource-admin-session", account.name);
       return true;
@@ -652,14 +660,14 @@ function App() {
 }
 
 function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: string, password: string) => boolean }) {
-  const [email, setEmail] = useState(demoAdmin.email);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (onLogin(email, password)) return;
-    setError("帳號或密碼不正確");
+    setError("帳號或密碼不正確，請聯絡管理者確認帳號狀態");
   }
 
   return (
@@ -674,15 +682,19 @@ function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: st
         </div>
         <label className="login-field">
           <span>公司帳號</span>
-          <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
+          <input
+            value={email}
+            onChange={(event) => { setEmail(event.target.value); setError(""); }}
+            autoComplete="username"
+            placeholder="Email、帳號代號或姓名"
+          />
         </label>
         <label className="login-field">
           <span>密碼</span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+          <input type="password" value={password} onChange={(event) => { setPassword(event.target.value); setError(""); }} autoComplete="current-password" />
         </label>
         {error && <div className="login-error">{error}</div>}
         <button className="primary-button" type="submit" disabled={loading}>{loading ? "載入帳號中…" : "登入"}</button>
-        <small>管理者：admin@impr.com.tw　同仁：staff01@impr.com.tw　預設密碼：impr2026</small>
       </form>
     </main>
   );
