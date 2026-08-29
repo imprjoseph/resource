@@ -30,10 +30,16 @@ npm run dev
 
 帳號 `role` 可用 `manager` 或 `staff`，也可填中文「管理者」「同仁」。派遣/工讀 `kind` 可填「派遣人員」或「工讀生」。
 
+為方便後續樞紐分析與圖表統計，網站編輯表單已將狀態、部門、區域、類別、負責人、專案等欄位改為選單；Google Sheet 中原本存在的自訂值也會自動保留在選項中，避免舊資料無法編輯。日期、Email、網址與電話亦使用對應的輸入型態。
+
 派遣/工讀的 `area` 是「區域」。舊資料若仍使用「部門」欄位，網站也會相容讀取。
 
 SOP 附件會上傳到 Google Drive 資料夾 `resource-sop-files`：
 https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT
+
+## 帳號與密碼安全
+
+「帳密大全」會直接顯示帳號，密碼則預設遮蔽並可逐筆查看。請勿將正式密碼放在公開發佈的 CSV、GitHub 原始碼或瀏覽器本機儲存空間；建議只存公司密碼管理器中的項目名稱或連結。GitHub Pages 的前端登入只能作為介面門檻，正式環境仍需在 Apps Script 或其他後端加入身分驗證與寫入授權。
 
 ## GitHub Pages 部署
 

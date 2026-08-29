@@ -662,6 +662,34 @@ td {
   letter-spacing: 1px;
 }
 
+.security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e7d6a2;
+  border-radius: 8px;
+  background: #fff8e6;
+  color: #5f4a12;
+}
+
+.security-note svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.security-note strong {
+  display: block;
+  font-size: 14px;
+}
+
+.security-note p {
+  margin: 4px 0 0;
+  color: #725d22;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -836,33 +864,55 @@ td {
   .nav-list {
     display: flex;
     overflow-x: auto;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+
+  .nav-list::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-item span {
     display: inline;
   }
 
+  .nav-item {
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding: 9px 11px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
   .workspace {
     padding: 16px;
   }
 
-  .topbar,
-  .top-actions {
+  .topbar {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .search-box {
-    width: 100%;
+  .top-actions {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
   }
 
-  .metric-grid,
+  .search-box {
+    width: 100%;
+    grid-column: 1 / -1;
+  }
+
   .two-column,
   .project-grid,
   .card-grid,
   .settings-grid,
   .edit-grid {
     grid-template-columns: 1fr;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .field.wide {

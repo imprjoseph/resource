@@ -175,7 +175,7 @@ type EditorState = {
 type FormField = {
   key: string;
   label: string;
-  type?: "text" | "number" | "checkbox" | "select";
+  type?: "text" | "number" | "checkbox" | "select" | "date" | "email" | "url" | "tel";
   options?: { label: string; value: string }[];
 };
 
@@ -348,54 +348,64 @@ const editorLabels: Record<ResourceKey, string> = {
   sops: "SOP",
 };
 
-const editorFields: Record<ResourceKey, FormField[]> = {
+function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]> {
+  const accountNames = data.accounts.map((account) => account.name);
+  const peopleNames = [...accountNames, ...data.personnel.map((person) => person.name)];
+  const projectOptions = [
+    { label: "請選擇專案", value: "" },
+    ...data.projects.map((project) => ({
+      label: `${project.code ? `${project.code}｜` : ""}${project.name}`,
+      value: project.id,
+    })),
+  ];
+
+  return {
   projects: [
     { key: "code", label: "專案代號" },
     { key: "name", label: "專案名稱" },
-    { key: "client", label: "客戶/單位" },
+    { key: "client", label: "客戶/單位", type: "select", options: valueOptions(["總管理處", "行政部", "行銷部", "人資部", "影像部", "業務部", "財務部", "資訊部"], data.projects.map((project) => project.client)) },
     { key: "status", label: "狀態", type: "select", options: statusOptions() },
-    { key: "owner", label: "負責人" },
-    { key: "startDate", label: "開始日期" },
-    { key: "endDate", label: "結束日期" },
+    { key: "owner", label: "負責人", type: "select", options: valueOptions(accountNames, data.projects.map((project) => project.owner)) },
+    { key: "startDate", label: "開始日期", type: "date" },
+    { key: "endDate", label: "結束日期", type: "date" },
     { key: "budget", label: "預算", type: "number" },
     { key: "description", label: "說明" },
   ],
   inventory: [
     { key: "name", label: "名稱" },
-    { key: "category", label: "類別" },
-    { key: "manager", label: "管理者" },
+    { key: "category", label: "類別", type: "select", options: valueOptions(["未分類", "3C", "攝影", "音響", "燈光", "文具", "展示", "家具", "其他"], data.inventory.map((item) => item.category)) },
+    { key: "manager", label: "管理者", type: "select", options: valueOptions(accountNames, data.inventory.map((item) => item.manager)) },
     { key: "quantity", label: "總量", type: "number" },
     { key: "borrowed", label: "借出", type: "number" },
-    { key: "location", label: "位置" },
+    { key: "location", label: "位置", type: "select", options: valueOptions(["行政櫃", "資訊櫃 A", "器材櫃 A", "器材櫃 B", "會議室倉庫", "攝影棚"], data.inventory.map((item) => item.location)) },
     { key: "note", label: "備註" },
   ],
   loans: [
-    { key: "purpose", label: "用途" },
-    { key: "borrower", label: "借用人" },
+    { key: "purpose", label: "用途/專案", type: "select", options: valueOptions(data.projects.map((project) => project.name), data.loans.map((loan) => loan.purpose)) },
+    { key: "borrower", label: "借用人", type: "select", options: valueOptions(peopleNames, data.loans.map((loan) => loan.borrower)) },
     { key: "status", label: "狀態", type: "select", options: loanOptions() },
-    { key: "plannedAt", label: "預計日期" },
-    { key: "borrowedAt", label: "借出日期" },
-    { key: "returnedAt", label: "歸還日期" },
+    { key: "plannedAt", label: "預計日期", type: "date" },
+    { key: "borrowedAt", label: "借出日期", type: "date" },
+    { key: "returnedAt", label: "歸還日期", type: "date" },
     { key: "items", label: "項目" },
   ],
   vendors: [
     { key: "name", label: "廠商名稱" },
-    { key: "type", label: "類別" },
+    { key: "type", label: "類別", type: "select", options: valueOptions(["活動工程", "攝影", "影像製作", "設計", "印刷", "場地", "餐飲", "人力", "系統", "其他"], data.vendors.map((vendor) => vendor.type)) },
     { key: "contact", label: "聯絡人" },
-    { key: "phone", label: "電話" },
-    { key: "email", label: "Email" },
+    { key: "phone", label: "電話", type: "tel" },
+    { key: "email", label: "Email", type: "email" },
     { key: "note", label: "備註" },
   ],
   cases: [
     { key: "title", label: "標題" },
-    { key: "type", label: "類型" },
+    { key: "type", label: "類型", type: "select", options: valueOptions(["活動企劃", "影像製作", "設計製作", "網站系統", "教育訓練", "其他"], data.cases.map((item) => item.type)) },
     { key: "year", label: "年度", type: "number" },
-    { key: "fileUrl", label: "檔案網址" },
+    { key: "fileUrl", label: "檔案網址", type: "url" },
     { key: "description", label: "說明" },
   ],
   budget: [
-    { key: "projectId", label: "專案 ID" },
-    { key: "projectName", label: "專案" },
+    { key: "projectId", label: "專案", type: "select", options: projectOptions },
     { key: "type", label: "類型", type: "select", options: [{ label: "收入", value: "income" }, { label: "支出", value: "expense" }] },
     { key: "planned", label: "規劃金額", type: "number" },
     { key: "actual", label: "實際金額", type: "number" },
@@ -404,45 +414,46 @@ const editorFields: Record<ResourceKey, FormField[]> = {
   ],
   accounts: [
     { key: "name", label: "姓名" },
-    { key: "email", label: "Email" },
+    { key: "email", label: "Email", type: "email" },
     { key: "role", label: "角色", type: "select", options: [{ label: "管理者", value: "manager" }, { label: "同仁", value: "staff" }] },
-    { key: "department", label: "部門" },
-    { key: "status", label: "狀態" },
+    { key: "department", label: "部門", type: "select", options: valueOptions(["總管理處", "行政部", "行銷部", "人資部", "影像部", "業務部", "財務部", "資訊部"], data.accounts.map((account) => account.department)) },
+    { key: "status", label: "狀態", type: "select", options: valueOptions(["啟用", "停用", "待啟用"], data.accounts.map((account) => account.status)) },
     { key: "note", label: "備註" },
   ],
   personnel: [
     { key: "name", label: "姓名/單位" },
     { key: "kind", label: "項目", type: "select", options: [{ label: "派遣人員", value: "派遣人員" }, { label: "工讀生", value: "工讀生" }] },
-    { key: "area", label: "區域" },
-    { key: "manager", label: "管理者" },
-    { key: "phone", label: "電話" },
-    { key: "email", label: "Email" },
-    { key: "status", label: "狀態" },
-    { key: "startDate", label: "開始日期" },
-    { key: "endDate", label: "結束日期" },
+    { key: "area", label: "區域", type: "select", options: valueOptions(["台北", "新北", "基隆", "桃園", "新竹", "台中", "台南", "高雄", "其他"], data.personnel.map((person) => person.area)) },
+    { key: "manager", label: "管理者", type: "select", options: valueOptions(accountNames, data.personnel.map((person) => person.manager)) },
+    { key: "phone", label: "電話", type: "tel" },
+    { key: "email", label: "Email", type: "email" },
+    { key: "status", label: "狀態", type: "select", options: valueOptions(["待排班", "排班中", "合約中", "暫停", "已結束"], data.personnel.map((person) => person.status)) },
+    { key: "startDate", label: "開始日期", type: "date" },
+    { key: "endDate", label: "結束日期", type: "date" },
     { key: "hourlyRate", label: "時薪/單價", type: "number" },
     { key: "note", label: "備註" },
   ],
   credentials: [
     { key: "name", label: "系統名稱" },
-    { key: "url", label: "網址" },
+    { key: "url", label: "網址", type: "url" },
     { key: "account", label: "帳號" },
     { key: "password", label: "密碼" },
-    { key: "period", label: "期間" },
-    { key: "manager", label: "管理者" },
+    { key: "period", label: "期間", type: "select", options: valueOptions(["長期", "年度", "專案期間", "臨時"], data.credentials.map((credential) => credential.period)) },
+    { key: "manager", label: "管理者", type: "select", options: valueOptions(accountNames, data.credentials.map((credential) => credential.manager)) },
     { key: "note", label: "備註" },
   ],
   sops: [
     { key: "title", label: "SOP 名稱" },
-    { key: "category", label: "類別" },
-    { key: "owner", label: "負責人" },
+    { key: "category", label: "類別", type: "select", options: valueOptions(["未分類", "專案管理", "物資管理", "人員管理", "帳號管理", "財務管理", "行政管理", "其他"], data.sops.map((sop) => sop.category)) },
+    { key: "owner", label: "負責人", type: "select", options: valueOptions(accountNames, data.sops.map((sop) => sop.owner)) },
     { key: "version", label: "版本" },
-    { key: "status", label: "狀態" },
-    { key: "updatedAt", label: "更新日期" },
-    { key: "fileUrl", label: "文件網址" },
+    { key: "status", label: "狀態", type: "select", options: valueOptions(["草稿", "審核中", "啟用", "停用", "已封存"], data.sops.map((sop) => sop.status)) },
+    { key: "updatedAt", label: "更新日期", type: "date" },
+    { key: "fileUrl", label: "文件網址", type: "url" },
     { key: "description", label: "說明" },
   ],
-};
+  };
+}
 
 function App() {
   const [active, setActive] = useState("dashboard");
@@ -628,7 +639,7 @@ function App() {
         {active === "cases" && <Cases cases={filtered.cases} onAdd={() => addRow("cases")} onEdit={(row) => openEditor("cases", row)} onDelete={(row) => deleteRow("cases", row)} />}
         {active === "budget" && <Budget items={filtered.budget} onAdd={() => addRow("budget")} onEdit={(row) => openEditor("budget", row)} onDelete={(row) => deleteRow("budget", row)} />}
         {active === "settings" && <SettingsPanel settings={settings} setSettings={setSettings} onRefresh={refresh} />}
-        {editor && <EditorModal editor={editor} onClose={() => setEditor(null)} onSave={saveEditor} />}
+        {editor && <EditorModal data={data} editor={editor} onClose={() => setEditor(null)} onSave={saveEditor} />}
       </main>
     </div>
   );
@@ -805,25 +816,34 @@ function Credentials({ credentials, onAdd, onEdit, onDelete }: { credentials: Co
   }
 
   return (
-    <Panel title="公司帳密大全" action={<PanelActions onAdd={onAdd} rows={credentials} filename="credentials.csv" />}>
-      <DataTable
-        columns={["系統名稱", "網址", "帳號", "密碼", "期間", "管理者", "備註", "操作"]}
-        rows={credentials.map((credential) => [
-          credential.name,
-          credential.url ? <a className="text-link" href={credential.url} target="_blank" rel="noreferrer">開啟</a> : "",
-          credential.account,
-          <PasswordCell
-            password={credential.password}
-            visible={Boolean(visiblePasswords[credential.id])}
-            onToggle={() => togglePassword(credential.id)}
-          />,
-          credential.period,
-          credential.manager,
-          credential.note,
-          <RowActions onEdit={() => onEdit(credential)} onDelete={() => onDelete(credential)} />,
-        ])}
-      />
-    </Panel>
+    <section className="view-stack">
+      <div className="security-note">
+        <KeyRound size={20} />
+        <div>
+          <strong>帳號以明碼顯示，密碼需按「查看」才會顯示</strong>
+          <p>本網站為公開靜態網站，正式密碼不應存入公開 CSV 或瀏覽器本機資料；建議此頁只存密碼管理器的項目名稱或連結。</p>
+        </div>
+      </div>
+      <Panel title="公司帳密大全" action={<PanelActions onAdd={onAdd} rows={credentials} filename="credentials.csv" />}>
+        <DataTable
+          columns={["系統名稱", "網址", "帳號", "密碼", "期間", "管理者", "備註", "操作"]}
+          rows={credentials.map((credential) => [
+            credential.name,
+            credential.url ? <a className="text-link" href={credential.url} target="_blank" rel="noreferrer">開啟</a> : "",
+            credential.account,
+            <PasswordCell
+              password={credential.password}
+              visible={Boolean(visiblePasswords[credential.id])}
+              onToggle={() => togglePassword(credential.id)}
+            />,
+            credential.period,
+            credential.manager,
+            credential.note,
+            <RowActions onEdit={() => onEdit(credential)} onDelete={() => onDelete(credential)} />,
+          ])}
+        />
+      </Panel>
+    </section>
   );
 }
 
@@ -1193,17 +1213,20 @@ function PanelActions({ onAdd, rows, filename }: { onAdd: () => void; rows: unkn
   );
 }
 
-function EditorModal({ editor, onClose, onSave }: { editor: EditorState; onClose: () => void; onSave: (row: ResourceRow, attachmentFile?: File | null) => void | Promise<void> }) {
+function EditorModal({ data, editor, onClose, onSave }: { data: ResourceData; editor: EditorState; onClose: () => void; onSave: (row: ResourceRow, attachmentFile?: File | null) => void | Promise<void> }) {
   const [draft, setDraft] = useState<Record<string, unknown>>({ ...(editor.row as Record<string, unknown>) });
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentError, setAttachmentError] = useState("");
-  const fields = editorFields[editor.key];
+  const fields = buildEditorFields(data)[editor.key];
   const isSop = editor.key === "sops";
 
   function update(field: FormField, value: string | boolean) {
     setDraft((current) => ({
       ...current,
       [field.key]: field.type === "number" ? toNumber(String(value)) : value,
+      ...(editor.key === "budget" && field.key === "projectId"
+        ? { projectName: data.projects.find((project) => project.id === value)?.name ?? "" }
+        : {}),
     }));
   }
 
@@ -1243,7 +1266,7 @@ function EditorModal({ editor, onClose, onSave }: { editor: EditorState; onClose
                 <input type="checkbox" checked={Boolean(draft[field.key])} onChange={(event) => update(field, event.target.checked)} />
               ) : (
                 <input
-                  type={field.type === "number" ? "number" : "text"}
+                  type={field.type ?? "text"}
                   value={String(draft[field.key] ?? "")}
                   onChange={(event) => update(field, event.target.value)}
                 />
@@ -1788,6 +1811,11 @@ function groupBy<T>(rows: T[], keyer: (row: T) => string) {
     groups[key].push(row);
     return groups;
   }, {});
+}
+
+function valueOptions(defaults: string[], observed: string[]) {
+  const values = Array.from(new Set([...defaults, ...observed].map((value) => value.trim()).filter(Boolean)));
+  return [{ label: "請選擇", value: "" }, ...values.map((value) => ({ label: value, value }))];
 }
 
 function statusOptions() {
