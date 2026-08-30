@@ -28,7 +28,7 @@ npm run dev
 
 `status` 可用 `planning`、`in_progress`、`on_hold`、`completed`、`cancelled`，或直接用中文狀態。借用狀態可用 `pending`、`borrowed`、`returned`，或中文。
 
-帳號 `role` 可用 `manager` 或 `staff`，也可填中文「管理者」「同仁」。帳號 `password` 未填時會暫時沿用預設密碼 `impr2026`，方便既有資料升級；正式使用前應逐筆改成個別密碼。派遣/工讀 `kind` 可填「派遣人員」或「工讀生」。
+帳號 `role` 可用 `manager` 或 `staff`，也可填中文「管理者」「同仁」。帳號 `password` 未填時，`admin@impr.com.tw` 會使用既有後台密碼，其他同仁會暫時沿用預設密碼 `impr2026`，方便既有資料升級；正式使用前應逐筆改成個別密碼。派遣/工讀 `kind` 可填「派遣人員」或「工讀生」。
 
 為方便後續樞紐分析與圖表統計，網站編輯表單已將狀態、部門、區域、類別、負責人、專案等欄位改為選單；Google Sheet 中原本存在的自訂值也會自動保留在選項中，避免舊資料無法編輯。日期、Email、網址與電話亦使用對應的輸入型態。
 

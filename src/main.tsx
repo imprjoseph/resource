@@ -213,9 +213,16 @@ const loanLabels: Record<string, string> = {
 
 const demoAdmin = {
   email: "admin@impr.com.tw",
-  password: "impr2026",
+  password: "impr101",
   name: "管理者",
 };
+
+const defaultStaffPassword = "impr2026";
+
+function accountPassword(account: Account) {
+  if (account.password) return account.password;
+  return account.email.trim().toLowerCase() === demoAdmin.email ? demoAdmin.password : defaultStaffPassword;
+}
 
 const defaultWriteEndpoint = "https://script.google.com/macros/s/AKfycbznOGudX0_IMjU088vgWwl-lLRmQtYYd7IqMwZJz4yO36RLSjz3c6xZAjpzN0L1MhmVMA/exec";
 const sopDriveFolderUrl = "https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT";
@@ -319,7 +326,7 @@ const sampleData: ResourceData = {
     { id: "u-001", name: "林怡君", email: "manager01@impr.com.tw", password: "impr2026", role: "manager", department: "總管理處", status: "啟用", note: "系統管理者" },
     { id: "u-002", name: "王佳玲", email: "staff01@impr.com.tw", password: "impr2026", role: "staff", department: "影像部", status: "啟用", note: "物資借用與案例上傳" },
     { id: "u-003", name: "陳柏宇", email: "staff02@impr.com.tw", password: "impr2026", role: "staff", department: "行銷部", status: "啟用", note: "專案與廠商維護" },
-    { id: "u-004", name: "黃郁婷", email: "admin@impr.com.tw", password: "impr2026", role: "manager", department: "行政部", status: "啟用", note: "文具與行政物資管理者" },
+    { id: "u-004", name: "黃郁婷", email: "admin@impr.com.tw", password: "impr101", role: "manager", department: "行政部", status: "啟用", note: "文具與行政物資管理者" },
   ],
   personnel: [
     { id: "pt-001", name: "張育瑄", kind: "工讀生", area: "台北", manager: "黃郁婷", phone: "0912-345-678", email: "pt01@impr.com.tw", status: "排班中", startDate: "2026-07-01", endDate: "2026-09-30", hourlyRate: 190, note: "文具盤點、資料建檔" },
@@ -510,8 +517,7 @@ function App() {
     if (!account) return "找不到此帳號，請確認 Email 或帳號代號";
     const isActive = !["停用", "已停用", "disabled"].includes(account.status.trim().toLowerCase());
     if (!isActive) return "此帳號已停用，請聯絡管理者";
-    const acceptedPasswords = Array.from(new Set([account.password, demoAdmin.password].filter(Boolean)));
-    if (acceptedPasswords.includes(password.trim())) {
+    if (password.trim() === accountPassword(account)) {
       setAdminName(account.name);
       localStorage.setItem("resource-admin-session", account.name);
       return "";
@@ -780,7 +786,7 @@ function Accounts({ accounts, onAdd, onEdit, onDelete }: { accounts: Account[]; 
             account.name,
             account.email,
             <PasswordCell
-              password={account.password || demoAdmin.password}
+              password={accountPassword(account)}
               visible={Boolean(visiblePasswords[account.id])}
               onToggle={() => togglePassword(account.id)}
             />,
