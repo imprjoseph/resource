@@ -412,7 +412,27 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
   ],
   inventory: [
     { key: "name", label: "名稱" },
-    { key: "category", label: "類別", type: "select", options: valueOptions(["未分類", "3C", "攝影", "音響", "燈光", "文具", "展示", "家具", "其他"], data.inventory.map((item) => item.category)) },
+    {
+      key: "category",
+      label: "類別",
+      type: "select",
+      options: valueOptions(
+        [
+          "電腦與周邊設備",
+          "電力與照明設備",
+          "影音轉接與訊號設備",
+          "展示與輸出器材",
+          "攝影與錄影設備",
+          "網路與通訊設備",
+          "簡報與投影設備",
+          "錄音與音響設備",
+          "測量與場勘工具",
+          "現場執行與管控設備",
+          "報到與識別設備",
+        ],
+        data.inventory.map((item) => item.category),
+      ),
+    },
     { key: "manager", label: "管理者", type: "select", options: valueOptions(accountNames, data.inventory.map((item) => item.manager)) },
     { key: "quantity", label: "總量", type: "number" },
     { key: "borrowed", label: "借出", type: "number" },
