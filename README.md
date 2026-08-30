@@ -67,3 +67,5 @@ https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT
 9. 回到網站「設定」頁，把 URL 貼到「Apps Script 寫入端點」後按儲存。
 
 若更新 `google-apps-script/resource-webapp.gs`，需要到 Apps Script 重新部署新版 Web App。SOP 夾檔功能需要新版 Apps Script，才會把檔案存到 `resource-sop-files` 並回寫 `sops.fileUrl`。
+
+目前前端會讀取 Apps Script 的 JSON 回應；後端若拒絕寫入或附件上傳失敗，畫面會顯示實際錯誤，不會再把失敗誤判為成功。附件上傳成功後，SOP 清單會立即更新 `fileUrl`，不必重新整理頁面。

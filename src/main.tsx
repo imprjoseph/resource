@@ -197,6 +197,17 @@ type SopAttachmentMutation = {
   };
 };
 
+type AppsScriptResponse = {
+  ok: boolean;
+  result?: {
+    action: string;
+    sheet: string;
+    id: string;
+    fileUrl?: string;
+  };
+  error?: string;
+};
+
 const statusLabels: Record<string, string> = {
   planning: "規劃中",
   in_progress: "進行中",
@@ -224,7 +235,8 @@ function accountPassword(account: Account) {
   return account.email.trim().toLowerCase() === demoAdmin.email ? demoAdmin.password : defaultStaffPassword;
 }
 
-const defaultWriteEndpoint = "https://script.google.com/macros/s/AKfycbznOGudX0_IMjU088vgWwl-lLRmQtYYd7IqMwZJz4yO36RLSjz3c6xZAjpzN0L1MhmVMA/exec";
+const defaultWriteEndpoint = "https://script.google.com/macros/s/AKfycbwiGXS62lBONyRW8VL9UrPF-G2hLgd3_iciYLAakPbDe2RdCA-M35stwdKUcqCd7Nzsvw/exec";
+const legacyWriteEndpoint = "https://script.google.com/macros/s/AKfycbznOGudX0_IMjU088vgWwl-lLRmQtYYd7IqMwZJz4yO36RLSjz3c6xZAjpzN0L1MhmVMA/exec";
 const sopDriveFolderUrl = "https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT";
 const maxSopAttachmentSize = 10 * 1024 * 1024;
 
@@ -558,8 +570,18 @@ function App() {
       try {
         await postSheetMutation(settings.writeEndpoint, { action, sheet: key, row: nextRow });
         if (key === "sops" && attachmentFile) {
-          await postSopAttachment(settings.writeEndpoint, nextRow as SopItem, attachmentFile);
-          setMessage("已同步 SOP，附件已送到 Google Drive；重新整理後會顯示檔案連結");
+          const uploadResult = await postSopAttachment(settings.writeEndpoint, nextRow as SopItem, attachmentFile);
+          if (!uploadResult.fileUrl) throw new Error("後端未回傳附件連結");
+          const uploadedRow = { ...(nextRow as SopItem), fileUrl: uploadResult.fileUrl };
+          setData((current) => {
+            const next = {
+              ...current,
+              sops: current.sops.map((row) => (row.id === uploadedRow.id ? uploadedRow : row)),
+            };
+            persistLocalEdits(next);
+            return next;
+          });
+          setMessage("SOP 與附件已同步，Google Drive 檔案連結已更新");
         } else {
           setMessage("已同步送出到 Google Sheet");
         }
@@ -1394,7 +1416,9 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
     try {
       const raw = localStorage.getItem("resource-sheet-settings");
       const parsed = raw ? { ...emptySettings, ...JSON.parse(raw) } : emptySettings;
-      return parsed.writeEndpoint ? parsed : { ...parsed, writeEndpoint: defaultWriteEndpoint };
+      return parsed.writeEndpoint && parsed.writeEndpoint !== legacyWriteEndpoint
+        ? parsed
+        : { ...parsed, writeEndpoint: defaultWriteEndpoint };
     } catch {
       return emptySettings;
     }
@@ -1707,13 +1731,7 @@ function isExistingRow(data: ResourceData, key: ResourceKey, row: ResourceRow) {
 }
 
 async function postSheetMutation(endpoint: string, mutation: SheetMutation) {
-  const response = await fetch(endpoint.trim(), {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(mutation),
-  });
-  return response;
+  return postAppsScriptMutation(endpoint, mutation);
 }
 
 async function postSopAttachment(endpoint: string, row: SopItem, file: File) {
@@ -1728,13 +1746,22 @@ async function postSopAttachment(endpoint: string, row: SopItem, file: File) {
     },
   };
 
+  const result = await postAppsScriptMutation(endpoint, mutation);
+  return result;
+}
+
+async function postAppsScriptMutation(endpoint: string, mutation: SheetMutation | SopAttachmentMutation) {
   const response = await fetch(endpoint.trim(), {
     method: "POST",
-    mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(mutation),
   });
-  return response;
+  if (!response.ok) throw new Error(`Apps Script 回應異常（${response.status}）`);
+
+  const payload = (await response.json()) as AppsScriptResponse;
+  if (!payload.ok) throw new Error(payload.error || "Apps Script 寫入失敗");
+  if (!payload.result) throw new Error("Apps Script 未回傳寫入結果");
+  return payload.result;
 }
 
 function fileToBase64(file: File) {
