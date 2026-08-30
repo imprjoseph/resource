@@ -338,8 +338,9 @@ const sampleData: ResourceData = {
     { id: "cred-002", name: "Google Sheet", url: "https://drive.google.com/", account: "admin@impr.com.tw", password: "請改填正式密碼", period: "2026", manager: "黃郁婷", note: "資料表與雲端資料夾" },
   ],
   sops: [
-    { id: "sop-001", title: "物資借用流程", category: "物資管理", owner: "王佳玲", version: "v1.0", status: "啟用", updatedAt: "2026-07-19", fileUrl: "", description: "申請、核准、借出、歸還與盤點流程。" },
-    { id: "sop-002", title: "派遣/工讀排班流程", category: "人員管理", owner: "黃郁婷", version: "v1.0", status: "草稿", updatedAt: "2026-07-19", fileUrl: "", description: "排班、簽到、時數確認與請款流程。" },
+    { id: "sops-1784523674962", title: "講者聯繫作業 SOP", category: "會議籌備", owner: "", version: "v1.0", status: "正式版", updatedAt: "2026-07-20", fileUrl: "https://docs.google.com/document/d/1VtbQR9-8rWJ4sQp_ZmwriW0LM_qP1_2y/edit?usp=drive_link", description: "講者聯繫及信函" },
+    { id: "sops-1784523867159", title: "設攤廠商聯繫作業 SOP", category: "展攤聯繫", owner: "", version: "v1.0", status: "正式版", updatedAt: "2026-07-20", fileUrl: "https://docs.google.com/document/d/1aly38dgMpnG7hkduDDD13qk_HEHFx2gw/edit?usp=drive_link", description: "攤商進撤場通知" },
+    { id: "sops-1787957503614", title: "會議進場分組", category: "會議", owner: "Joseph", version: "v1.0", status: "草稿", updatedAt: "2026-08-28", fileUrl: "", description: "進場人員分工" },
   ],
 };
 
@@ -922,13 +923,13 @@ function Sops({ sops, onAdd, onEdit, onDelete }: { sops: SopItem[]; onAdd: () =>
         <DataTable
           columns={["SOP 名稱", "類別", "負責人", "版本", "狀態", "更新日期", "文件", "說明", "操作"]}
           rows={sops.map((sop) => [
-            sop.title,
+            sop.fileUrl ? <a className="text-link" href={sop.fileUrl} target="_blank" rel="noreferrer">{sop.title}</a> : sop.title,
             sop.category,
             sop.owner,
             sop.version,
             sop.status,
             sop.updatedAt,
-            sop.fileUrl ? <a className="text-link" href={sop.fileUrl} target="_blank" rel="noreferrer">開啟</a> : "",
+            sop.fileUrl ? <a className="primary-button compact" href={sop.fileUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> 查看 SOP</a> : <span className="muted">尚未附檔</span>,
             sop.description,
             <RowActions onEdit={() => onEdit(sop)} onDelete={() => onDelete(sop)} />,
           ])}
@@ -1684,7 +1685,13 @@ function filterData(data: ResourceData, query: string): ResourceData {
 function mergeLocalEdits(data: ResourceData): ResourceData {
   try {
     const raw = localStorage.getItem("resource-local-edits");
-    return raw ? { ...data, ...JSON.parse(raw) } : data;
+    if (!raw) return data;
+    const local = JSON.parse(raw) as Partial<ResourceData>;
+    return {
+      ...data,
+      ...local,
+      sops: Array.isArray(local.sops) && local.sops.length > 0 ? local.sops : data.sops,
+    };
   } catch {
     return data;
   }

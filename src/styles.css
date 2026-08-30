@@ -260,6 +260,7 @@ button {
   background: #1f6f62;
   color: white;
   border-color: #1f6f62;
+  text-decoration: none;
 }
 
 .secondary-button {
@@ -270,6 +271,7 @@ a.secondary-button {
   text-decoration: none;
 }
 
+.primary-button.compact,
 .secondary-button.compact {
   min-height: 30px;
   padding: 0 9px;

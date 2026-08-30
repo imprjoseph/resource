@@ -37,6 +37,8 @@ npm run dev
 SOP 附件會上傳到 Google Drive 資料夾 `resource-sop-files`：
 https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT
 
+網站的 SOP 清單以 `sops` 分頁資料列為準，Drive 資料夾中的檔案需在 `fileUrl` 欄有對應連結才會出現「查看 SOP」按鈕。網站內建資料已同步目前資料夾中的「講者聯繫作業 SOP」與「設攤廠商聯繫作業 SOP」；SOP 名稱與「查看 SOP」按鈕皆可開啟文件。
+
 ## 帳號與密碼安全
 
 「帳號」與「帳密大全」會直接顯示帳號，密碼則預設遮蔽並可逐筆查看。請勿將正式密碼放在公開發佈的 CSV、GitHub 原始碼或瀏覽器本機儲存空間；建議只存公司密碼管理器中的項目名稱或連結。GitHub Pages 的前端登入只能作為介面門檻，正式環境仍需在 Apps Script 或其他後端加入身分驗證與寫入授權。
