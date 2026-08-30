@@ -217,6 +217,15 @@ type AppsScriptReadResponse = {
   error?: string;
 };
 
+type AppsScriptLoginResponse = {
+  ok: boolean;
+  result?: {
+    account: Record<string, string>;
+    accounts: Record<string, string>[];
+  };
+  error?: string;
+};
+
 const statusLabels: Record<string, string> = {
   planning: "規劃中",
   in_progress: "進行中",
@@ -488,7 +497,7 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
 
 function App() {
   const [active, setActive] = useState("dashboard");
-  const [adminName, setAdminName] = useState(() => localStorage.getItem("resource-admin-session") || "");
+  const [adminName, setAdminName] = useState("");
   const [settings, setSettings] = usePersistentSettings();
   const [data, setData] = useState<ResourceData>(sampleData);
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -518,33 +527,18 @@ function App() {
   const summary = useMemo(() => buildSummary(data), [data]);
   const filtered = useMemo(() => filterData(data, query), [data, query]);
 
-  function handleLogin(identifier: string, password: string) {
-    const normalizedIdentifier = identifier.trim().toLowerCase();
-    const loginAliases: Record<string, string> = {
-      staff: "staff01@impr.com.tw",
-      "staff@impr.com.tw": "staff01@impr.com.tw",
-      manager: "manager01@impr.com.tw",
-      "manager@impr.com.tw": "manager01@impr.com.tw",
-    };
-    const resolvedIdentifier = loginAliases[normalizedIdentifier] ?? normalizedIdentifier;
-    const loginAccounts = [
-      ...data.accounts,
-      ...sampleData.accounts.filter((sample) => !data.accounts.some((item) => item.email.trim().toLowerCase() === sample.email.trim().toLowerCase())),
-    ];
-    const account = loginAccounts.find((item) => {
-      const normalizedEmail = item.email.trim().toLowerCase();
-      const emailAccount = normalizedEmail.split("@")[0];
-      return [normalizedEmail, emailAccount, item.id.trim().toLowerCase(), item.name.trim().toLowerCase()].includes(resolvedIdentifier);
-    });
-    if (!account) return "找不到此帳號，請確認 Email 或帳號代號";
-    const isActive = !["停用", "已停用", "disabled"].includes(account.status.trim().toLowerCase());
-    if (!isActive) return "此帳號已停用，請聯絡管理者";
-    if (password.trim() === accountPassword(account)) {
-      setAdminName(account.name);
-      localStorage.setItem("resource-admin-session", account.name);
+  async function handleLogin(identifier: string, password: string) {
+    try {
+      const result = await postAppsScriptLogin(settings.writeEndpoint, identifier, password);
+      const account = mapAccount(result.account, 0);
+      const accounts = simplifyAccountIds(result.accounts.map(mapAccount));
+      setData((current) => ({ ...current, accounts }));
+      setAdminName(account.name || account.email || account.id);
+      localStorage.removeItem("resource-admin-session");
       return "";
+    } catch (error) {
+      return error instanceof Error ? error.message : "登入失敗，請稍後再試";
     }
-    return "密碼不正確，請聯絡管理者確認密碼";
   }
 
   function logout() {
@@ -706,14 +700,17 @@ function App() {
   );
 }
 
-function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: string, password: string) => string }) {
+function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: string, password: string) => Promise<string> }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const loginError = onLogin(email, password);
+    setSubmitting(true);
+    const loginError = await onLogin(email, password);
+    setSubmitting(false);
     if (!loginError) return;
     setError(loginError);
   }
@@ -742,7 +739,7 @@ function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: st
           <input type="password" value={password} onChange={(event) => { setPassword(event.target.value); setError(""); }} autoComplete="current-password" />
         </label>
         {error && <div className="login-error">{error}</div>}
-        <button className="primary-button" type="submit" disabled={loading}>{loading ? "載入帳號中…" : "登入"}</button>
+        <button className="primary-button" type="submit" disabled={loading || submitting}>{loading ? "載入資料中…" : submitting ? "驗證帳號中…" : "登入"}</button>
       </form>
     </main>
   );
@@ -1820,6 +1817,20 @@ async function postAppsScriptMutation(endpoint: string, mutation: SheetMutation 
   const payload = (await response.json()) as AppsScriptResponse;
   if (!payload.ok) throw new Error(payload.error || "Apps Script 寫入失敗");
   if (!payload.result) throw new Error("Apps Script 未回傳寫入結果");
+  return payload.result;
+}
+
+async function postAppsScriptLogin(endpoint: string, identifier: string, password: string) {
+  if (!endpoint.trim()) throw new Error("尚未設定 accounts 登入端點");
+  const response = await fetch(endpoint.trim(), {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "login", identifier, password }),
+  });
+  if (!response.ok) throw new Error(`登入端點回應異常（${response.status}）`);
+  const payload = (await response.json()) as AppsScriptLoginResponse;
+  if (!payload.ok) throw new Error(payload.error || "登入失敗");
+  if (!payload.result?.account || !Array.isArray(payload.result.accounts)) throw new Error("登入回應格式不正確");
   return payload.result;
 }
 

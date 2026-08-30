@@ -6,11 +6,43 @@ const READABLE_SHEETS = ["inventory"];
 function doPost(event) {
   try {
     const payload = JSON.parse(event.postData.contents || "{}");
-    const result = payload.action === "uploadSopFile" ? handleSopFileUpload(payload) : handleMutation(payload);
+    const result = payload.action === "login"
+      ? handleLogin(payload)
+      : payload.action === "uploadSopFile"
+        ? handleSopFileUpload(payload)
+        : handleMutation(payload);
     return jsonResponse({ ok: true, result });
   } catch (error) {
     return jsonResponse({ ok: false, error: String(error && error.message ? error.message : error) });
   }
+}
+
+function handleLogin(payload) {
+  const identifier = String(payload.identifier || "").trim().toLowerCase();
+  const password = String(payload.password || "").trim();
+  if (!identifier || !password) throw new Error("請輸入帳號與密碼");
+
+  const accounts = readSheetRows("accounts");
+  const account = accounts.find((row) => {
+    const email = String(row.email || "").trim().toLowerCase();
+    const emailAccount = email.split("@")[0];
+    return [String(row.id || ""), String(row.name || ""), email, emailAccount]
+      .map((value) => value.trim().toLowerCase())
+      .includes(identifier);
+  });
+
+  if (!account || String(account.password || "").trim() !== password) {
+    throw new Error("帳號或密碼不正確，請依 accounts 分頁確認");
+  }
+  if (["停用", "已停用", "disabled"].includes(String(account.status || "").trim().toLowerCase())) {
+    throw new Error("此帳號已停用，請聯絡管理者");
+  }
+
+  const isManager = ["manager", "admin", "管理者"].includes(String(account.role || "").trim().toLowerCase());
+  return {
+    account,
+    accounts: isManager ? accounts : [account],
+  };
 }
 
 function doGet(event) {
