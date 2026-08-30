@@ -491,6 +491,13 @@ function App() {
 
   function handleLogin(identifier: string, password: string) {
     const normalizedIdentifier = identifier.trim().toLowerCase();
+    const loginAliases: Record<string, string> = {
+      staff: "staff01@impr.com.tw",
+      "staff@impr.com.tw": "staff01@impr.com.tw",
+      manager: "manager01@impr.com.tw",
+      "manager@impr.com.tw": "manager01@impr.com.tw",
+    };
+    const resolvedIdentifier = loginAliases[normalizedIdentifier] ?? normalizedIdentifier;
     const loginAccounts = [
       ...data.accounts,
       ...sampleData.accounts.filter((sample) => !data.accounts.some((item) => item.email.trim().toLowerCase() === sample.email.trim().toLowerCase())),
@@ -498,16 +505,18 @@ function App() {
     const account = loginAccounts.find((item) => {
       const normalizedEmail = item.email.trim().toLowerCase();
       const emailAccount = normalizedEmail.split("@")[0];
-      return [normalizedEmail, emailAccount, item.id.trim().toLowerCase(), item.name.trim().toLowerCase()].includes(normalizedIdentifier);
+      return [normalizedEmail, emailAccount, item.id.trim().toLowerCase(), item.name.trim().toLowerCase()].includes(resolvedIdentifier);
     });
-    const expectedPassword = account?.password || demoAdmin.password;
-    const isActive = account && !["停用", "已停用", "disabled"].includes(account.status.trim().toLowerCase());
-    if (isActive && password.trim() === expectedPassword) {
+    if (!account) return "找不到此帳號，請確認 Email 或帳號代號";
+    const isActive = !["停用", "已停用", "disabled"].includes(account.status.trim().toLowerCase());
+    if (!isActive) return "此帳號已停用，請聯絡管理者";
+    const acceptedPasswords = Array.from(new Set([account.password, demoAdmin.password].filter(Boolean)));
+    if (acceptedPasswords.includes(password.trim())) {
       setAdminName(account.name);
       localStorage.setItem("resource-admin-session", account.name);
-      return true;
+      return "";
     }
-    return false;
+    return "密碼不正確，請聯絡管理者確認密碼";
   }
 
   function logout() {
@@ -659,15 +668,16 @@ function App() {
   );
 }
 
-function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: string, password: string) => boolean }) {
+function LoginPage({ loading, onLogin }: { loading: boolean; onLogin: (email: string, password: string) => string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (onLogin(email, password)) return;
-    setError("帳號或密碼不正確，請聯絡管理者確認帳號狀態");
+    const loginError = onLogin(email, password);
+    if (!loginError) return;
+    setError(loginError);
   }
 
   return (
