@@ -208,6 +208,15 @@ type AppsScriptResponse = {
   error?: string;
 };
 
+type AppsScriptReadResponse = {
+  ok: boolean;
+  result?: {
+    sheet: string;
+    rows: Record<string, string>[];
+  };
+  error?: string;
+};
+
 const statusLabels: Record<string, string> = {
   planning: "規劃中",
   in_progress: "進行中",
@@ -491,9 +500,9 @@ function App() {
     setLoading(true);
     try {
       const loaded = await loadSheetData(settings);
-      const merged = mergeLocalEdits(loaded);
+      const merged = mergeLocalEdits(loaded, Boolean(settings.inventory.trim() || settings.writeEndpoint.trim()));
       setData(merged);
-      setMessage(hasAnySheet(settings) ? "已載入 Google Sheet 資料，含本機編輯" : "使用範例資料，含本機編輯");
+      setMessage(hasRemoteDataSource(settings) ? "已載入 Google Sheet 資料" : "使用範例資料，含本機編輯");
     } catch (error) {
       setData(mergeLocalEdits(sampleData));
       setMessage(error instanceof Error ? `讀取失敗，改用範例資料：${error.message}` : "讀取失敗，改用範例資料");
@@ -1433,11 +1442,11 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
 }
 
 async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
-  if (!hasAnySheet(settings)) return sampleData;
-
   const [projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops] = await Promise.all([
     loadCsv(settings.projects, sampleData.projects, mapProject),
-    loadCsv(settings.inventory, sampleData.inventory, mapInventory),
+    settings.inventory.trim()
+      ? loadCsv(settings.inventory, sampleData.inventory, mapInventory)
+      : loadAppsScriptSheet(settings.writeEndpoint, "inventory", sampleData.inventory, mapInventory),
     loadCsv(settings.loans, sampleData.loans, mapLoan),
     loadCsv(settings.vendors, sampleData.vendors, mapVendor),
     loadCsv(settings.cases, sampleData.cases, mapCase),
@@ -1449,6 +1458,26 @@ async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
   ]);
 
   return { projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops };
+}
+
+async function loadAppsScriptSheet<T>(
+  endpoint: string,
+  sheet: string,
+  fallback: T[],
+  mapper: (row: Record<string, string>, index: number) => T,
+): Promise<T[]> {
+  if (!endpoint.trim()) return fallback;
+  const url = new URL(endpoint.trim());
+  url.searchParams.set("action", "read");
+  url.searchParams.set("sheet", sheet);
+  url.searchParams.set("_", String(Date.now()));
+
+  const response = await fetch(url.toString(), { cache: "no-store" });
+  if (!response.ok) throw new Error(`Apps Script HTTP ${response.status}`);
+  const payload = (await response.json()) as AppsScriptReadResponse;
+  if (!payload.ok) throw new Error(payload.error || `無法讀取 ${sheet}`);
+  if (!payload.result || payload.result.sheet !== sheet) throw new Error(`${sheet} 回應格式不正確`);
+  return payload.result.rows.map(mapper);
 }
 
 async function loadCsv<T>(url: string, fallback: T[], mapper: (row: Record<string, string>, index: number) => T): Promise<T[]> {
@@ -1669,6 +1698,10 @@ function hasAnySheet(settings: SheetSettings) {
   return sheetKeys.some((sheet) => settings[sheet.key].trim());
 }
 
+function hasRemoteDataSource(settings: SheetSettings) {
+  return hasAnySheet(settings) || Boolean(settings.writeEndpoint.trim());
+}
+
 function buildSummary(data: ResourceData) {
   const now = new Date();
   const in30 = new Date(now);
@@ -1706,7 +1739,7 @@ function filterData(data: ResourceData, query: string): ResourceData {
   };
 }
 
-function mergeLocalEdits(data: ResourceData): ResourceData {
+function mergeLocalEdits(data: ResourceData, preferCloudInventory = false): ResourceData {
   try {
     const raw = localStorage.getItem("resource-local-edits");
     if (!raw) return { ...data, accounts: simplifyAccountIds(data.accounts) };
@@ -1714,6 +1747,7 @@ function mergeLocalEdits(data: ResourceData): ResourceData {
     const merged = {
       ...data,
       ...local,
+      inventory: preferCloudInventory ? data.inventory : (local.inventory || data.inventory),
       sops: Array.isArray(local.sops) && local.sops.length > 0 ? local.sops : data.sops,
     };
     return { ...merged, accounts: simplifyAccountIds(merged.accounts) };

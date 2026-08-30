@@ -1,6 +1,7 @@
 const SPREADSHEET_ID = "1k6Hq11F4LUt73e2fSIi1iV4RhHQmFg36N-2TQ3H-S74";
 const SOP_FOLDER_ID = "12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT";
 const SOP_FILE_SHARE_WITH_LINK = true;
+const READABLE_SHEETS = ["inventory"];
 
 function doPost(event) {
   try {
@@ -12,8 +13,31 @@ function doPost(event) {
   }
 }
 
-function doGet() {
-  return jsonResponse({ ok: true, name: "resource web app" });
+function doGet(event) {
+  try {
+    const action = event && event.parameter ? event.parameter.action : "";
+    if (action === "read") {
+      const sheetName = String(event.parameter.sheet || "");
+      if (!READABLE_SHEETS.includes(sheetName)) throw new Error("Sheet is not available for public reading");
+      return jsonResponse({ ok: true, result: { sheet: sheetName, rows: readSheetRows(sheetName) } });
+    }
+    return jsonResponse({ ok: true, name: "resource web app" });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: String(error && error.message ? error.message : error) });
+  }
+}
+
+function readSheetRows(sheetName) {
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(sheetName);
+  if (!sheet) throw new Error(`Sheet not found: ${sheetName}`);
+
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return [];
+  const headers = values[0].map(String);
+  return values.slice(1)
+    .filter((row) => row.some((value) => String(value).trim()))
+    .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] || ""])));
 }
 
 function handleMutation(payload) {
