@@ -548,7 +548,7 @@ function App() {
   }
 
   function addRow(key: ResourceKey) {
-    setEditor({ key, row: createBlankRow(key) });
+    setEditor({ key, row: createBlankRow(key, data) });
   }
 
   async function saveEditor(nextRow: ResourceRow, attachmentFile?: File | null) {
@@ -1577,7 +1577,7 @@ function mapBudget(row: Record<string, string>, index: number): BudgetItem {
 function mapAccount(row: Record<string, string>, index: number): Account {
   const roleText = pick(row, ["role", "角色", "權限"]);
   return {
-    id: pick(row, ["id", "編號", "帳號id"]) || `account-${index + 1}`,
+    id: pick(row, ["id", "編號", "帳號id"]) || `u-${String(index + 1).padStart(3, "0")}`,
     name: pick(row, ["name", "姓名", "名稱"]),
     email: pick(row, ["email", "帳號", "信箱"]),
     password: pick(row, ["password", "密碼"]),
@@ -1709,16 +1709,41 @@ function filterData(data: ResourceData, query: string): ResourceData {
 function mergeLocalEdits(data: ResourceData): ResourceData {
   try {
     const raw = localStorage.getItem("resource-local-edits");
-    if (!raw) return data;
+    if (!raw) return { ...data, accounts: simplifyAccountIds(data.accounts) };
     const local = JSON.parse(raw) as Partial<ResourceData>;
-    return {
+    const merged = {
       ...data,
       ...local,
       sops: Array.isArray(local.sops) && local.sops.length > 0 ? local.sops : data.sops,
     };
+    return { ...merged, accounts: simplifyAccountIds(merged.accounts) };
   } catch {
-    return data;
+    return { ...data, accounts: simplifyAccountIds(data.accounts) };
   }
+}
+
+function simplifyAccountIds(accounts: Account[]) {
+  const accountNumber = (id: string) => Number(id.match(/^u-(\d+)$/i)?.[1] || 0);
+  let nextNumber = Math.max(0, ...accounts.map((account) => accountNumber(account.id))) + 1;
+  const used = new Set<string>();
+
+  return accounts.map((account) => {
+    const currentNumber = accountNumber(account.id);
+    const normalized = currentNumber ? `u-${String(currentNumber).padStart(3, "0")}` : "";
+    if (normalized && !used.has(normalized)) {
+      used.add(normalized);
+      return normalized === account.id ? account : { ...account, id: normalized };
+    }
+
+    let id = `u-${String(nextNumber).padStart(3, "0")}`;
+    while (used.has(id)) {
+      nextNumber += 1;
+      id = `u-${String(nextNumber).padStart(3, "0")}`;
+    }
+    used.add(id);
+    nextNumber += 1;
+    return { ...account, id };
+  });
 }
 
 function persistLocalEdits(data: ResourceData) {
@@ -1773,8 +1798,10 @@ function fileToBase64(file: File) {
   });
 }
 
-function createBlankRow(key: ResourceKey): ResourceRow {
-  const id = `${key}-${Date.now()}`;
+function createBlankRow(key: ResourceKey, data?: ResourceData): ResourceRow {
+  const accountNumbers = data?.accounts.map((account) => Number(account.id.match(/^u-(\d+)$/i)?.[1] || 0)) || [];
+  const nextAccountNumber = Math.max(0, ...accountNumbers) + 1;
+  const id = key === "accounts" ? `u-${String(nextAccountNumber).padStart(3, "0")}` : `${key}-${Date.now()}`;
   const rows: Record<ResourceKey, ResourceRow> = {
     projects: {
       id,
