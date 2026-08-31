@@ -415,7 +415,6 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
     { key: "owner", label: "負責人", type: "select", options: valueOptions(accountNames, data.projects.map((project) => project.owner)) },
     { key: "startDate", label: "開始日期", type: "date" },
     { key: "endDate", label: "結束日期", type: "date" },
-    { key: "budget", label: "預算", type: "number" },
     { key: "description", label: "說明", type: "textarea" },
     { key: "successes", label: "結案分析－成功經驗", type: "textarea" },
     { key: "improvements", label: "結案分析－待改進事項", type: "textarea" },
@@ -1004,13 +1003,8 @@ function Projects({ data, onAdd, onEdit, onDelete }: { data: ResourceData; onAdd
         <AddButton onClick={onAdd} />
       </div>
       <div className="project-grid">
-        {data.projects.map((project) => {
-          const spent = data.budget
-            .filter((item) => item.projectId === project.id && item.type === "expense")
-            .reduce((sum, item) => sum + item.actual, 0);
-          const progress = project.budget > 0 ? Math.min(100, Math.round((spent / project.budget) * 100)) : 0;
-          return (
-            <article className="project-card" key={project.id}>
+        {data.projects.map((project) => (
+          <article className="project-card" key={project.id}>
               <div className="card-heading">
                 <div>
                   <span className="code">{project.code || "未編號"}</span>
@@ -1026,12 +1020,7 @@ function Projects({ data, onAdd, onEdit, onDelete }: { data: ResourceData; onAdd
                 <span>客戶：{project.client || "未指定"}</span>
                 <span>負責：{project.owner || "未指定"}</span>
                 <span>{project.startDate || "未定"} → {project.endDate || "未定"}</span>
-                <span>{money(project.budget)}</span>
               </div>
-              <div className="progress">
-                <div style={{ width: `${progress}%` }} />
-              </div>
-              <small>實際支出 {money(spent)} / 預算 {money(project.budget)}</small>
               {(project.status === "completed" || project.successes || project.improvements) && (
                 <div className="closeout-analysis">
                   <strong>結案分析</strong>
@@ -1045,9 +1034,8 @@ function Projects({ data, onAdd, onEdit, onDelete }: { data: ResourceData; onAdd
                   </div>
                 </div>
               )}
-            </article>
-          );
-        })}
+          </article>
+        ))}
       </div>
     </section>
   );
