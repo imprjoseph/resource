@@ -17,7 +17,7 @@ npm run dev
 
 建議分頁與欄位：
 
-- 專案：`id, code, name, client, status, owner, startDate, endDate, budget, description`
+- 專案：`id, code, name, client, status, owner, startDate, endDate, budget, description, successes, improvements`
 - 物資：`id, name, category, manager, quantity, borrowed, location, note`
 - 借用：`id, purpose, borrower, status, plannedAt, borrowedAt, returnedAt, items`
 - 廠商：`id, name, type, contact, phone, email, note`
@@ -29,6 +29,8 @@ npm run dev
 - SOP：`id, title, category, owner, version, status, updatedAt, fileUrl, description`
 
 `status` 可用 `planning`、`in_progress`、`on_hold`、`completed`、`cancelled`，或直接用中文狀態。借用狀態可用 `pending`、`borrowed`、`returned`，或中文。
+
+專案結案分析使用 `successes` 記錄成功經驗、`improvements` 記錄待改進事項；網站在專案狀態為已完成時會直接顯示兩項內容，未填則提醒補充。
 
 帳號 `role` 可用 `manager` 或 `staff`，也可填中文「管理者」「同仁」。帳號 `password` 未填時，`admin@impr.com.tw` 會使用既有後台密碼，其他同仁會暫時沿用預設密碼 `impr2026`，方便既有資料升級；正式使用前應逐筆改成個別密碼。派遣/工讀 `kind` 可填「派遣人員」或「工讀生」。
 

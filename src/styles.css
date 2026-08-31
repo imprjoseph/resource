@@ -500,6 +500,34 @@ a.secondary-button {
   background: #1f6f62;
 }
 
+.closeout-analysis {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #dce7e3;
+  border-radius: 10px;
+  background: #f5faf8;
+}
+
+.closeout-analysis > strong {
+  color: #1f6f62;
+}
+
+.closeout-analysis span {
+  display: block;
+  margin-bottom: 4px;
+  color: #4c5f6b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.closeout-analysis p {
+  margin: 0;
+  color: #24333b;
+  white-space: pre-wrap;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -630,6 +658,17 @@ td {
   border-radius: 8px;
   padding: 0 10px;
   background: #ffffff;
+}
+
+.field textarea {
+  min-height: 112px;
+  border: 1px solid #d8e1e7;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+  font: inherit;
+  line-height: 1.55;
+  resize: vertical;
 }
 
 .field small {

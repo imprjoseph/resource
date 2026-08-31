@@ -50,6 +50,8 @@ type Project = {
   endDate: string;
   budget: number;
   description: string;
+  successes: string;
+  improvements: string;
 };
 
 type InventoryItem = {
@@ -176,7 +178,7 @@ type EditorState = {
 type FormField = {
   key: string;
   label: string;
-  type?: "text" | "number" | "checkbox" | "select" | "date" | "email" | "url" | "tel";
+  type?: "text" | "number" | "checkbox" | "select" | "date" | "email" | "url" | "tel" | "textarea";
   options?: { label: string; value: string }[];
 };
 
@@ -259,7 +261,7 @@ const sopDriveFolderUrl = "https://drive.google.com/drive/folders/12sV1AcbL9-7uT
 const maxSopAttachmentSize = 10 * 1024 * 1024;
 
 const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
-  { key: "projects", label: "專案", hint: "id, code, name, client, status, owner, startDate, endDate, budget, description" },
+  { key: "projects", label: "專案", hint: "id, code, name, client, status, owner, startDate, endDate, budget, description, successes, improvements" },
   { key: "inventory", label: "物資", hint: "id, name, category, manager, quantity, borrowed, location, note" },
   { key: "loans", label: "借用", hint: "id, purpose, borrower, status, plannedAt, borrowedAt, returnedAt, items" },
   { key: "vendors", label: "廠商", hint: "id, name, type, contact, phone, email, note" },
@@ -298,6 +300,8 @@ const sampleData: ResourceData = {
       endDate: "2026-09-30",
       budget: 680000,
       description: "整合專案、物資、廠商與預算追蹤。",
+      successes: "",
+      improvements: "",
     },
     {
       id: "p-002",
@@ -310,6 +314,8 @@ const sampleData: ResourceData = {
       endDate: "2026-11-20",
       budget: 1200000,
       description: "活動企劃、器材借用與合作廠商管理。",
+      successes: "",
+      improvements: "",
     },
     {
       id: "p-003",
@@ -322,6 +328,8 @@ const sampleData: ResourceData = {
       endDate: "2026-06-30",
       budget: 280000,
       description: "內訓課程拍攝與後製。",
+      successes: "",
+      improvements: "",
     },
   ],
   inventory: [
@@ -408,7 +416,9 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
     { key: "startDate", label: "開始日期", type: "date" },
     { key: "endDate", label: "結束日期", type: "date" },
     { key: "budget", label: "預算", type: "number" },
-    { key: "description", label: "說明" },
+    { key: "description", label: "說明", type: "textarea" },
+    { key: "successes", label: "結案分析－成功經驗", type: "textarea" },
+    { key: "improvements", label: "結案分析－待改進事項", type: "textarea" },
   ],
   inventory: [
     { key: "name", label: "名稱" },
@@ -1022,6 +1032,19 @@ function Projects({ data, onAdd, onEdit, onDelete }: { data: ResourceData; onAdd
                 <div style={{ width: `${progress}%` }} />
               </div>
               <small>實際支出 {money(spent)} / 預算 {money(project.budget)}</small>
+              {(project.status === "completed" || project.successes || project.improvements) && (
+                <div className="closeout-analysis">
+                  <strong>結案分析</strong>
+                  <div>
+                    <span>成功經驗</span>
+                    <p>{project.successes || "尚未填寫"}</p>
+                  </div>
+                  <div>
+                    <span>待改進事項</span>
+                    <p>{project.improvements || "尚未填寫"}</p>
+                  </div>
+                </div>
+              )}
             </article>
           );
         })}
@@ -1349,7 +1372,7 @@ function EditorModal({ data, editor, onClose, onSave }: { data: ResourceData; ed
         </div>
         <div className="edit-grid">
           {fields.map((field) => (
-            <label className={field.type === "checkbox" ? "edit-check" : "field"} key={field.key}>
+            <label className={field.type === "checkbox" ? "edit-check" : field.type === "textarea" ? "field wide" : "field"} key={field.key}>
               <span>{field.label}</span>
               {field.type === "select" ? (
                 <select value={String(draft[field.key] ?? "")} onChange={(event) => update(field, event.target.value)}>
@@ -1357,6 +1380,12 @@ function EditorModal({ data, editor, onClose, onSave }: { data: ResourceData; ed
                 </select>
               ) : field.type === "checkbox" ? (
                 <input type="checkbox" checked={Boolean(draft[field.key])} onChange={(event) => update(field, event.target.checked)} />
+              ) : field.type === "textarea" ? (
+                <textarea
+                  rows={5}
+                  value={String(draft[field.key] ?? "")}
+                  onChange={(event) => update(field, event.target.value)}
+                />
               ) : (
                 <input
                   type={field.type ?? "text"}
@@ -1554,6 +1583,8 @@ function mapProject(row: Record<string, string>, index: number): Project {
     endDate: pick(row, ["enddate", "end_date", "結束日期", "截止日期"]),
     budget: toNumber(pick(row, ["budget", "budget_total", "預算", "總預算"])),
     description: pick(row, ["description", "說明", "備註"]),
+    successes: pick(row, ["successes", "success", "成功經驗", "成功事項"]),
+    improvements: pick(row, ["improvements", "improvement", "待改進事項", "改進事項"]),
   };
 }
 
@@ -1879,6 +1910,8 @@ function createBlankRow(key: ResourceKey, data?: ResourceData): ResourceRow {
       endDate: "",
       budget: 0,
       description: "",
+      successes: "",
+      improvements: "",
     },
     inventory: {
       id,
