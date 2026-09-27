@@ -262,7 +262,7 @@ const sopDriveFolderUrl = "https://drive.google.com/drive/folders/12sV1AcbL9-7uT
 const maxSopAttachmentSize = 10 * 1024 * 1024;
 
 const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
-  { key: "projects", label: "專案", hint: "id, code, name, client, status, owner, startDate, endDate, budget, description, successes, improvements" },
+  { key: "projects", label: "專案", hint: "活動編號, 活動名稱, 客戶／主辦單位, 活動日期, PM, 執行階段, 完成率" },
   { key: "inventory", label: "物資", hint: "id, name, category, manager, quantity, borrowed, location, note" },
   { key: "loans", label: "借用", hint: "id, purpose, borrower, status, plannedAt, borrowedAt, returnedAt, items" },
   { key: "vendors", label: "廠商", hint: "id, name, type, contact, phone, email, note" },
@@ -273,6 +273,7 @@ const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "credentials", label: "帳密大全", hint: "id, name, url, account, password, period, manager, note" },
   { key: "sops", label: "SOP", hint: "id, title, category, owner, version, status, updatedAt, fileUrl, description" },
 ];
+const configurableSheetKeys = sheetKeys.filter((sheet) => sheet.key !== "projects");
 
 const emptySettings: SheetSettings = {
   projects: "",
@@ -539,7 +540,7 @@ function App() {
     setLoading(true);
     try {
       const loaded = await loadSheetData(settings);
-      const merged = mergeLocalEdits(loaded, Boolean(settings.projects.trim() || settings.writeEndpoint.trim()));
+      const merged = mergeLocalEdits(loaded, Boolean(settings.writeEndpoint.trim()));
       setData(merged);
       setMessage(hasRemoteDataSource(settings) ? "已載入 Google Sheet 資料" : "使用範例資料，含本機編輯");
     } catch (error) {
@@ -1214,11 +1215,11 @@ function SettingsPanel({
     <section className="settings-layout">
       <Panel title="Google Sheet 連線" action={<button className="primary-button" onClick={() => { setSettings(draft); onRefresh(); }}><Save size={16} /> 儲存</button>}>
         <div className="settings-copy">
-          <p>每個分頁可用「檔案 → 共用 → 發佈到網路 → CSV」取得網址。欄位名稱可用中文或英文，系統會自動對應常見欄位。</p>
+          <p>專案固定由「活動進度自動追蹤系統」動態更新；其他分頁可用「檔案 → 共用 → 發佈到網路 → CSV」取得網址。</p>
           <p>若要新增、編輯、刪除資料，建議建立 Google Apps Script Web App，並把 POST endpoint 填在下方；目前網站已預留寫入位置，讀取可直接用 CSV。</p>
         </div>
         <div className="settings-grid">
-          {sheetKeys.map((sheet) => (
+          {configurableSheetKeys.map((sheet) => (
             <label className="field" key={sheet.key}>
               <span>{sheet.label} CSV</span>
               <input value={draft[sheet.key]} onChange={(event) => update(sheet.key, event.target.value)} placeholder="https://docs.google.com/spreadsheets/..." />
@@ -1479,9 +1480,7 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
 
 async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
   const [projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops] = await Promise.all([
-    settings.projects.trim()
-      ? loadCsv(settings.projects, sampleData.projects, mapProject)
-      : loadAppsScriptSheet(settings.writeEndpoint, "projects", sampleData.projects, mapProject),
+    loadAppsScriptSheet(settings.writeEndpoint, "projects", sampleData.projects, mapProject),
     settings.inventory.trim()
       ? loadCsv(settings.inventory, sampleData.inventory, mapInventory)
       : loadAppsScriptSheet(settings.writeEndpoint, "inventory", sampleData.inventory, mapInventory),
