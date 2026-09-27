@@ -1,7 +1,10 @@
 const SPREADSHEET_ID = "1k6Hq11F4LUt73e2fSIi1iV4RhHQmFg36N-2TQ3H-S74";
+const PROJECTS_SPREADSHEET_ID = "1Fckp1WwVp8WM7d3tuu-yNyXviDVBn1zr0huhHiJTAP8";
+const PROJECTS_SHEET_NAME = "活動總表";
+const PROJECTS_HEADER_ROW = 5;
 const SOP_FOLDER_ID = "12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT";
 const SOP_FILE_SHARE_WITH_LINK = true;
-const READABLE_SHEETS = ["inventory"];
+const READABLE_SHEETS = ["projects", "inventory"];
 
 function doPost(event) {
   try {
@@ -51,12 +54,33 @@ function doGet(event) {
     if (action === "read") {
       const sheetName = String(event.parameter.sheet || "");
       if (!READABLE_SHEETS.includes(sheetName)) throw new Error("Sheet is not available for public reading");
-      return jsonResponse({ ok: true, result: { sheet: sheetName, rows: readSheetRows(sheetName) } });
+      const rows = sheetName === "projects" ? readProjectRows() : readSheetRows(sheetName);
+      return jsonResponse({ ok: true, result: { sheet: sheetName, rows } });
     }
     return jsonResponse({ ok: true, name: "resource web app" });
   } catch (error) {
     return jsonResponse({ ok: false, error: String(error && error.message ? error.message : error) });
   }
+}
+
+function readProjectRows() {
+  const spreadsheet = SpreadsheetApp.openById(PROJECTS_SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(PROJECTS_SHEET_NAME);
+  if (!sheet) throw new Error(`Sheet not found: ${PROJECTS_SHEET_NAME}`);
+
+  const lastRow = sheet.getLastRow();
+  const lastColumn = sheet.getLastColumn();
+  if (lastRow <= PROJECTS_HEADER_ROW || !lastColumn) return [];
+
+  const values = sheet
+    .getRange(PROJECTS_HEADER_ROW, 1, lastRow - PROJECTS_HEADER_ROW + 1, lastColumn)
+    .getDisplayValues();
+  const headers = values.shift().map(String);
+  const nameColumn = headers.indexOf("活動名稱");
+
+  return values
+    .filter((row) => nameColumn >= 0 && String(row[nameColumn] || "").trim())
+    .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] || ""])));
 }
 
 function readSheetRows(sheetName) {

@@ -257,6 +257,7 @@ function accountPassword(account: Account) {
 
 const defaultWriteEndpoint = "https://script.google.com/macros/s/AKfycbwiGXS62lBONyRW8VL9UrPF-G2hLgd3_iciYLAakPbDe2RdCA-M35stwdKUcqCd7Nzsvw/exec";
 const legacyWriteEndpoint = "https://script.google.com/macros/s/AKfycbznOGudX0_IMjU088vgWwl-lLRmQtYYd7IqMwZJz4yO36RLSjz3c6xZAjpzN0L1MhmVMA/exec";
+const projectsSourceUrl = "https://docs.google.com/spreadsheets/d/1Fckp1WwVp8WM7d3tuu-yNyXviDVBn1zr0huhHiJTAP8/edit";
 const sopDriveFolderUrl = "https://drive.google.com/drive/folders/12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT";
 const maxSopAttachmentSize = 10 * 1024 * 1024;
 
@@ -538,7 +539,7 @@ function App() {
     setLoading(true);
     try {
       const loaded = await loadSheetData(settings);
-      const merged = mergeLocalEdits(loaded, Boolean(settings.inventory.trim() || settings.writeEndpoint.trim()));
+      const merged = mergeLocalEdits(loaded, Boolean(settings.projects.trim() || settings.writeEndpoint.trim()));
       setData(merged);
       setMessage(hasRemoteDataSource(settings) ? "已載入 Google Sheet 資料" : "使用範例資料，含本機編輯");
     } catch (error) {
@@ -716,7 +717,7 @@ function App() {
         {active === "personnel" && <PersonnelPage personnel={filtered.personnel} onAdd={() => addRow("personnel")} onEdit={(row) => openEditor("personnel", row)} onDelete={(row) => deleteRow("personnel", row)} />}
         {active === "credentials" && <Credentials credentials={filtered.credentials} onAdd={() => addRow("credentials")} onEdit={(row) => openEditor("credentials", row)} onDelete={(row) => deleteRow("credentials", row)} />}
         {active === "sops" && <Sops sops={filtered.sops} onAdd={() => addRow("sops")} onEdit={(row) => openEditor("sops", row)} onDelete={(row) => deleteRow("sops", row)} />}
-        {active === "projects" && <Projects data={filtered} onAdd={() => addRow("projects")} onEdit={(row) => openEditor("projects", row)} onDelete={(row) => deleteRow("projects", row)} />}
+        {active === "projects" && <Projects data={filtered} />}
         {active === "inventory" && <Inventory items={filtered.inventory} onAdd={() => addRow("inventory")} onEdit={(row) => openEditor("inventory", row)} onDelete={(row) => deleteRow("inventory", row)} />}
         {active === "loans" && <Loans loans={filtered.loans} onAdd={() => addRow("loans")} onEdit={(row) => openEditor("loans", row)} onDelete={(row) => deleteRow("loans", row)} />}
         {active === "vendors" && <Vendors vendors={filtered.vendors} onAdd={() => addRow("vendors")} onEdit={(row) => openEditor("vendors", row)} onDelete={(row) => deleteRow("vendors", row)} />}
@@ -996,11 +997,13 @@ function Sops({ sops, onAdd, onEdit, onDelete }: { sops: SopItem[]; onAdd: () =>
   );
 }
 
-function Projects({ data, onAdd, onEdit, onDelete }: { data: ResourceData; onAdd: () => void; onEdit: (row: Project) => void; onDelete: (row: Project) => void }) {
+function Projects({ data }: { data: ResourceData }) {
   return (
     <section className="view-stack">
       <div className="page-actions">
-        <AddButton onClick={onAdd} />
+        <a className="secondary-button" href={projectsSourceUrl} target="_blank" rel="noreferrer">
+          <ExternalLink size={16} /> 開啟活動追蹤表
+        </a>
       </div>
       <div className="project-grid">
         {data.projects.map((project) => (
@@ -1012,14 +1015,13 @@ function Projects({ data, onAdd, onEdit, onDelete }: { data: ResourceData; onAdd
                 </div>
                 <div className="card-actions">
                   <StatusBadge status={project.status} />
-                  <RowActions onEdit={() => onEdit(project)} onDelete={() => onDelete(project)} />
                 </div>
               </div>
               <p>{project.description || "尚無說明"}</p>
               <div className="meta-grid">
                 <span>客戶：{project.client || "未指定"}</span>
                 <span>負責：{project.owner || "未指定"}</span>
-                <span>{project.startDate || "未定"} → {project.endDate || "未定"}</span>
+                <span>活動日：{project.startDate || "未定"}</span>
               </div>
               {(project.status === "completed" || project.successes || project.improvements) && (
                 <div className="closeout-analysis">
@@ -1477,7 +1479,9 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
 
 async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
   const [projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops] = await Promise.all([
-    loadCsv(settings.projects, sampleData.projects, mapProject),
+    settings.projects.trim()
+      ? loadCsv(settings.projects, sampleData.projects, mapProject)
+      : loadAppsScriptSheet(settings.writeEndpoint, "projects", sampleData.projects, mapProject),
     settings.inventory.trim()
       ? loadCsv(settings.inventory, sampleData.inventory, mapInventory)
       : loadAppsScriptSheet(settings.writeEndpoint, "inventory", sampleData.inventory, mapInventory),
@@ -1560,17 +1564,31 @@ function parseCsv(text: string): Record<string, string>[] {
 }
 
 function mapProject(row: Record<string, string>, index: number): Project {
+  const code = pick(row, ["code", "專案代號", "活動編號"]);
+  const activityDate = pick(row, ["startdate", "start_date", "開始日期", "活動日期"]);
+  const totalTasks = pick(row, ["總工作數"]);
+  const completedTasks = pick(row, ["已完成"]);
+  const completionRate = pick(row, ["完成率"]);
+  const activitySummary = [
+    totalTasks ? `工作進度 ${completedTasks || "0"}/${totalTasks}${completionRate ? `（${completionRate}）` : ""}` : completionRate ? `完成率 ${completionRate}` : "",
+    pick(row, ["逾期"]) ? `逾期 ${pick(row, ["逾期"])}` : "",
+    pick(row, ["卡關"]) ? `卡關 ${pick(row, ["卡關"])}` : "",
+    pick(row, ["待確認"]) ? `待確認 ${pick(row, ["待確認"])}` : "",
+    pick(row, ["專案燈號"]) ? `燈號 ${pick(row, ["專案燈號"])}` : "",
+    pick(row, ["最近更新日"]) ? `更新 ${pick(row, ["最近更新日"])}` : "",
+  ].filter(Boolean).join("｜");
+
   return {
-    id: pick(row, ["id", "編號", "流水號"]) || `project-${index + 1}`,
-    code: pick(row, ["code", "專案代號"]),
-    name: pick(row, ["name", "專案名稱", "名稱"]),
-    client: pick(row, ["client", "客戶", "單位"]),
-    status: normalizeStatus(pick(row, ["status", "狀態"])),
-    owner: pick(row, ["owner", "負責人", "pm"]),
-    startDate: pick(row, ["startdate", "start_date", "開始日期"]),
-    endDate: pick(row, ["enddate", "end_date", "結束日期", "截止日期"]),
+    id: pick(row, ["id", "編號", "流水號", "活動編號"]) || `project-${index + 1}`,
+    code,
+    name: pick(row, ["name", "專案名稱", "活動名稱", "名稱"]),
+    client: pick(row, ["client", "客戶", "單位", "客戶／主辦單位", "客戶/主辦單位", "主辦單位"]),
+    status: normalizeStatus(pick(row, ["status", "狀態", "執行階段"])),
+    owner: pick(row, ["owner", "負責人", "pm", "PM"]),
+    startDate: activityDate,
+    endDate: pick(row, ["enddate", "end_date", "結束日期", "截止日期"]) || activityDate,
     budget: toNumber(pick(row, ["budget", "budget_total", "預算", "總預算"])),
-    description: pick(row, ["description", "說明", "備註"]),
+    description: pick(row, ["description", "說明", "備註"]) || activitySummary,
     successes: pick(row, ["successes", "success", "成功經驗", "成功事項"]),
     improvements: pick(row, ["improvements", "improvement", "待改進事項", "改進事項"]),
   };
@@ -1712,7 +1730,8 @@ function normalizeKey(key: string) {
 
 function normalizeStatus(status: string) {
   const text = status || "planning";
-  if (text.includes("進行")) return "in_progress";
+  if (text.includes("規劃")) return "planning";
+  if (text.includes("進行") || text.includes("執行") || text.includes("籌備")) return "in_progress";
   if (text.includes("暫")) return "on_hold";
   if (text.includes("完成")) return "completed";
   if (text.includes("取消")) return "cancelled";
@@ -1775,7 +1794,7 @@ function filterData(data: ResourceData, query: string): ResourceData {
   };
 }
 
-function mergeLocalEdits(data: ResourceData, preferCloudInventory = false): ResourceData {
+function mergeLocalEdits(data: ResourceData, preferCloudSheets = false): ResourceData {
   try {
     const raw = localStorage.getItem("resource-local-edits");
     if (!raw) return { ...data, accounts: simplifyAccountIds(data.accounts) };
@@ -1783,7 +1802,8 @@ function mergeLocalEdits(data: ResourceData, preferCloudInventory = false): Reso
     const merged = {
       ...data,
       ...local,
-      inventory: preferCloudInventory ? data.inventory : (local.inventory || data.inventory),
+      projects: preferCloudSheets ? data.projects : (local.projects || data.projects),
+      inventory: preferCloudSheets ? data.inventory : (local.inventory || data.inventory),
       sops: Array.isArray(local.sops) && local.sops.length > 0 ? local.sops : data.sops,
     };
     return { ...merged, accounts: simplifyAccountIds(merged.accounts) };

@@ -13,7 +13,9 @@ npm run dev
 
 網站第一次開啟會使用範例資料。到「設定」頁貼上各分頁的 CSV 發佈網址後，按「儲存」即可讀取真實資料。
 
-`inventory` 分頁預設會透過 Apps Script 直接讀取私有 Google Sheet，不需要另外發佈 CSV；重新整理網站即可取得最新器材清單。基於資料安全，公開讀取介面只開放 `inventory`，不包含 `accounts`、`credentials` 或密碼欄位。
+`inventory` 分頁預設會透過 Apps Script 直接讀取私有 Google Sheet，不需要另外發佈 CSV；重新整理網站即可取得最新器材清單。基於資料安全，公開讀取介面只開放 `projects` 與 `inventory`，不包含 `accounts`、`credentials` 或密碼欄位。
+
+`projects` 專案資料預設由 Apps Script 讀取「活動進度自動追蹤系統」試算表的「活動總表」分頁（第 5 列為標題），網站載入及按下重新整理時會同步最新有效活動。專案頁採唯讀模式，資料請直接在來源試算表維護。
 
 建議分頁與欄位：
 
