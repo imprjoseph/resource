@@ -1162,13 +1162,29 @@ function Loans({ loans, onAdd, onEdit, onDelete }: { loans: Loan[]; onAdd: () =>
 }
 
 function Vendors({ vendors, onAdd, onEdit, onDelete }: { vendors: Vendor[]; onAdd: () => void; onEdit: (row: Vendor) => void; onDelete: (row: Vendor) => void }) {
+  const [selectedType, setSelectedType] = useState("");
+  const vendorTypes = Array.from(new Set(vendors.map((vendor) => vendor.type || "未分類"))).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+  const visibleVendors = vendors
+    .filter((vendor) => !selectedType || (vendor.type || "未分類") === selectedType)
+    .sort((a, b) => (a.type || "未分類").localeCompare(b.type || "未分類", "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant"));
+
   return (
     <section className="view-stack">
       <div className="page-actions">
+        <label className="inline-filter">
+          <span>廠商種類</span>
+          <select value={selectedType} onChange={(event) => setSelectedType(event.target.value)}>
+            <option value="">全部種類</option>
+            {vendorTypes.map((type) => <option value={type} key={type}>{type}</option>)}
+          </select>
+        </label>
+        <button className="secondary-button" type="button" onClick={() => downloadCsv(visibleVendors, "vendors.csv")} disabled={!visibleVendors.length}>
+          <Download size={16} /> 下載 CSV
+        </button>
         <AddButton onClick={onAdd} />
       </div>
       <div className="card-grid">
-        {vendors.map((vendor) => (
+        {visibleVendors.map((vendor) => (
           <article className="info-card" key={vendor.id}>
             <div className="card-heading">
               <div>
@@ -1189,6 +1205,7 @@ function Vendors({ vendors, onAdd, onEdit, onDelete }: { vendors: Vendor[]; onAd
           </article>
         ))}
       </div>
+      {!visibleVendors.length && <div className="empty-state">目前沒有符合此種類的廠商。</div>}
     </section>
   );
 }

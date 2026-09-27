@@ -290,10 +290,38 @@ a.secondary-button {
   justify-content: flex-end;
 }
 
+.inline-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #52636d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.inline-filter select {
+  min-width: 160px;
+  height: 34px;
+  border: 1px solid #d8e1e7;
+  border-radius: 8px;
+  padding: 0 32px 0 10px;
+  background: #ffffff;
+  color: #1f2933;
+}
+
 .view-stack,
 .settings-layout {
   display: grid;
   gap: 18px;
+}
+
+.empty-state {
+  padding: 28px;
+  border: 1px dashed #cbd7de;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #667985;
+  text-align: center;
 }
 
 .metric-grid {
