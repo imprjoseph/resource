@@ -1033,15 +1033,25 @@ function Sops({ sops, onAdd, onEdit, onDelete }: { sops: SopItem[]; onAdd: () =>
 }
 
 function Projects({ data, onEdit }: { data: ResourceData; onEdit: (row: Project) => void }) {
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const visibleProjects = data.projects.filter((project) => !selectedStatus || project.status === selectedStatus);
+
   return (
     <section className="view-stack">
       <div className="page-actions">
+        <label className="inline-filter">
+          <span>專案狀態</span>
+          <select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)}>
+            <option value="">全部狀態</option>
+            {Object.entries(statusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+          </select>
+        </label>
         <a className="secondary-button" href={projectsSourceUrl} target="_blank" rel="noreferrer">
           <ExternalLink size={16} /> 開啟活動追蹤表
         </a>
       </div>
       <div className="project-grid">
-        {data.projects.map((project) => (
+        {visibleProjects.map((project) => (
           <article className="project-card" key={project.id}>
               <div className="card-heading">
                 <div>
@@ -1073,6 +1083,7 @@ function Projects({ data, onEdit }: { data: ResourceData; onEdit: (row: Project)
           </article>
         ))}
       </div>
+      {!visibleProjects.length && <div className="empty-state">目前沒有符合此狀態的專案。</div>}
     </section>
   );
 }
