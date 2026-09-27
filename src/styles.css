@@ -499,6 +499,12 @@ a.secondary-button {
   text-transform: uppercase;
 }
 
+.rating-value {
+  color: #c07a00;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .project-card p,
 .info-card p,
 .settings-copy p {

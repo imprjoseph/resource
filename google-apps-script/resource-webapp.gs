@@ -131,6 +131,7 @@ function handleMutation(payload) {
   if (!["create", "update", "delete"].includes(action)) throw new Error("Invalid action");
   if (!sheetName) throw new Error("Missing sheet");
   if (!row.id) throw new Error("Missing row id");
+  if (sheetName === "projects") return handleProjectMutation(payload);
   if (PRIVATE_READABLE_SHEETS.includes(sheetName)) requireSession(payload.sessionToken);
 
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -153,6 +154,36 @@ function handleMutation(payload) {
     sheet.appendRow(values);
   }
   return { action, sheet: sheetName, id: row.id };
+}
+
+function handleProjectMutation(payload) {
+  if (payload.action !== "update") throw new Error("Projects only support closeout analysis updates");
+  requireSession(payload.sessionToken);
+
+  const row = payload.row || {};
+  const spreadsheet = SpreadsheetApp.openById(PROJECTS_SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(PROJECTS_SHEET_NAME);
+  if (!sheet) throw new Error(`Sheet not found: ${PROJECTS_SHEET_NAME}`);
+
+  const lastColumn = sheet.getLastColumn();
+  const headers = sheet.getRange(PROJECTS_HEADER_ROW, 1, 1, lastColumn).getDisplayValues()[0].map(String);
+  const idColumn = headers.indexOf("活動編號") + 1;
+  const successesColumn = headers.indexOf("成功經驗") + 1;
+  const improvementsColumn = headers.indexOf("待改進事項") + 1;
+  if (!idColumn || !successesColumn || !improvementsColumn) throw new Error("活動總表缺少結案分析欄位");
+
+  const firstDataRow = PROJECTS_HEADER_ROW + 1;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < firstDataRow) throw new Error("活動總表沒有專案資料");
+  const ids = sheet.getRange(firstDataRow, idColumn, lastRow - firstDataRow + 1, 1).getDisplayValues();
+  const projectId = String(row.code || row.id || "").trim();
+  const offset = ids.findIndex((value) => String(value[0] || "").trim() === projectId);
+  if (offset < 0) throw new Error(`Project not found: ${projectId}`);
+
+  const rowIndex = firstDataRow + offset;
+  sheet.getRange(rowIndex, successesColumn).setValue(String(row.successes || ""));
+  sheet.getRange(rowIndex, improvementsColumn).setValue(String(row.improvements || ""));
+  return { action: "update", sheet: "projects", id: projectId };
 }
 
 function handleSopFileUpload(payload) {

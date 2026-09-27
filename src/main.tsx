@@ -95,6 +95,7 @@ type Vendor = {
   phone: string;
   email: string;
   note: string;
+  rating: number;
 };
 
 type CaseStudy = {
@@ -141,6 +142,7 @@ type Personnel = {
   endDate: string;
   hourlyRate: number;
   note: string;
+  rating: number;
 };
 
 type CompanyCredential = {
@@ -281,11 +283,11 @@ const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "media", label: "媒體記者", hint: "id, media, name, title, phone, email, lastContact" },
   { key: "inventory", label: "物資", hint: "id, name, category, manager, quantity, borrowed, location, note" },
   { key: "loans", label: "借用", hint: "id, purpose, borrower, status, plannedAt, borrowedAt, returnedAt, items" },
-  { key: "vendors", label: "廠商", hint: "id, name, type, contact, phone, email, note" },
+  { key: "vendors", label: "廠商", hint: "id, name, type, contact, phone, email, note, rating" },
   { key: "cases", label: "案例", hint: "id, title, type, year, fileUrl, description" },
   { key: "budget", label: "預算", hint: "id, projectId, projectName, type, planned, actual, paid, item" },
   { key: "accounts", label: "帳號", hint: "id, name, email, password, role, department, status, note" },
-  { key: "personnel", label: "派遣/工讀", hint: "id, name, kind, area, manager, phone, email, status, startDate, endDate, hourlyRate, note" },
+  { key: "personnel", label: "派遣/工讀", hint: "id, name, kind, area, manager, phone, email, status, startDate, endDate, hourlyRate, note, rating" },
   { key: "credentials", label: "帳密大全", hint: "id, name, url, account, password, period, manager, note" },
   { key: "sops", label: "SOP", hint: "id, title, category, owner, version, status, updatedAt, fileUrl, description" },
 ];
@@ -366,9 +368,9 @@ const sampleData: ResourceData = {
     { id: "l-003", purpose: "品牌形象照", borrower: "林怡君", status: "returned", plannedAt: "2026-06-20", borrowedAt: "2026-06-20", returnedAt: "2026-06-22", items: "LED 補光燈 x2" },
   ],
   vendors: [
-    { id: "v-001", name: "晨光影像", type: "攝影", contact: "張先生", phone: "02-2345-6789", email: "hello@example.com", note: "影片拍攝與直播支援" },
-    { id: "v-002", name: "展場製作所", type: "活動工程", contact: "李小姐", phone: "02-8765-4321", email: "service@example.com", note: "舞台、背板、燈光" },
-    { id: "v-003", name: "雲端資訊顧問", type: "系統", contact: "黃顧問", phone: "03-222-7788", email: "it@example.com", note: "Google Workspace 與網站部署" },
+    { id: "v-001", name: "晨光影像", type: "攝影", contact: "張先生", phone: "02-2345-6789", email: "hello@example.com", note: "影片拍攝與直播支援", rating: 0 },
+    { id: "v-002", name: "展場製作所", type: "活動工程", contact: "李小姐", phone: "02-8765-4321", email: "service@example.com", note: "舞台、背板、燈光", rating: 0 },
+    { id: "v-003", name: "雲端資訊顧問", type: "系統", contact: "黃顧問", phone: "03-222-7788", email: "it@example.com", note: "Google Workspace 與網站部署", rating: 0 },
   ],
   cases: [
     { id: "c-001", title: "2025 年度品牌活動結案", type: "活動企劃", year: 2025, fileUrl: "", description: "可參考議程、預算與供應商組合。" },
@@ -387,9 +389,9 @@ const sampleData: ResourceData = {
     { id: "u-004", name: "黃郁婷", email: "admin@impr.com.tw", password: "impr101", role: "manager", department: "行政部", status: "啟用", note: "文具與行政物資管理者" },
   ],
   personnel: [
-    { id: "pt-001", name: "張育瑄", kind: "工讀生", area: "台北", manager: "黃郁婷", phone: "0912-345-678", email: "pt01@impr.com.tw", status: "排班中", startDate: "2026-07-01", endDate: "2026-09-30", hourlyRate: 190, note: "文具盤點、資料建檔" },
-    { id: "pt-002", name: "劉冠廷", kind: "工讀生", area: "新北", manager: "陳柏宇", phone: "0922-555-816", email: "pt02@impr.com.tw", status: "待排班", startDate: "2026-07-15", endDate: "2026-08-31", hourlyRate: 200, note: "活動支援與報到協助" },
-    { id: "dispatch-001", name: "宏展人力派遣", kind: "派遣人員", area: "桃園", manager: "林怡君", phone: "02-2222-8899", email: "dispatch@example.com", status: "合約中", startDate: "2026-07-01", endDate: "2026-12-31", hourlyRate: 320, note: "大型活動現場支援" },
+    { id: "pt-001", name: "張育瑄", kind: "工讀生", area: "台北", manager: "黃郁婷", phone: "0912-345-678", email: "pt01@impr.com.tw", status: "排班中", startDate: "2026-07-01", endDate: "2026-09-30", hourlyRate: 190, note: "文具盤點、資料建檔", rating: 0 },
+    { id: "pt-002", name: "劉冠廷", kind: "工讀生", area: "新北", manager: "陳柏宇", phone: "0922-555-816", email: "pt02@impr.com.tw", status: "待排班", startDate: "2026-07-15", endDate: "2026-08-31", hourlyRate: 200, note: "活動支援與報到協助", rating: 0 },
+    { id: "dispatch-001", name: "宏展人力派遣", kind: "派遣人員", area: "桃園", manager: "林怡君", phone: "02-2222-8899", email: "dispatch@example.com", status: "合約中", startDate: "2026-07-01", endDate: "2026-12-31", hourlyRate: 320, note: "大型活動現場支援", rating: 0 },
   ],
   credentials: [
     { id: "cred-001", name: "GitHub", url: "https://github.com/imprjoseph/resource", account: "imprjoseph", password: "請改填正式密碼", period: "長期", manager: "林怡君", note: "資源管理網站 repo" },
@@ -429,14 +431,6 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
 
   return {
   projects: [
-    { key: "code", label: "專案代號" },
-    { key: "name", label: "專案名稱" },
-    { key: "client", label: "客戶/單位", type: "select", options: valueOptions(["總管理處", "行政部", "行銷部", "人資部", "影像部", "業務部", "財務部", "資訊部"], data.projects.map((project) => project.client)) },
-    { key: "status", label: "狀態", type: "select", options: statusOptions() },
-    { key: "owner", label: "負責人", type: "select", options: valueOptions(accountNames, data.projects.map((project) => project.owner)) },
-    { key: "startDate", label: "開始日期", type: "date" },
-    { key: "endDate", label: "結束日期", type: "date" },
-    { key: "description", label: "說明", type: "textarea" },
     { key: "successes", label: "結案分析－成功經驗", type: "textarea" },
     { key: "improvements", label: "結案分析－待改進事項", type: "textarea" },
   ],
@@ -493,6 +487,7 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
     { key: "phone", label: "電話", type: "tel" },
     { key: "email", label: "Email", type: "email" },
     { key: "note", label: "備註" },
+    { key: "rating", label: "評價", type: "select", options: ratingOptions() },
   ],
   cases: [
     { key: "title", label: "標題" },
@@ -530,6 +525,7 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
     { key: "endDate", label: "結束日期", type: "date" },
     { key: "hourlyRate", label: "時薪/單價", type: "number" },
     { key: "note", label: "備註" },
+    { key: "rating", label: "評價", type: "select", options: ratingOptions() },
   ],
   credentials: [
     { key: "name", label: "系統名稱" },
@@ -634,7 +630,10 @@ function App() {
     setEditor(null);
     if (settings.writeEndpoint.trim()) {
       try {
-        await postSheetMutation(settings.writeEndpoint, { action, sheet: key, row: nextRow, sessionToken: key === "media" ? sessionToken : undefined });
+        const syncedRow = ["vendors", "personnel"].includes(key) && !Number((nextRow as { rating?: unknown }).rating)
+          ? ({ ...nextRow, rating: "" } as unknown as ResourceRow)
+          : nextRow;
+        await postSheetMutation(settings.writeEndpoint, { action, sheet: key, row: syncedRow, sessionToken });
         if (key === "sops" && attachmentFile) {
           const uploadResult = await postSopAttachment(settings.writeEndpoint, nextRow as SopItem, attachmentFile);
           if (!uploadResult.fileUrl) throw new Error("後端未回傳附件連結");
@@ -673,7 +672,7 @@ function App() {
     });
     if (settings.writeEndpoint.trim()) {
       try {
-        await postSheetMutation(settings.writeEndpoint, { action: "delete", sheet: key, row, sessionToken: key === "media" ? sessionToken : undefined });
+        await postSheetMutation(settings.writeEndpoint, { action: "delete", sheet: key, row, sessionToken });
         setMessage("已同步刪除 Google Sheet 資料");
       } catch (error) {
         setMessage(error instanceof Error ? `已先刪除本機資料，同步失敗：${error.message}` : "已先刪除本機資料，同步失敗");
@@ -751,7 +750,7 @@ function App() {
         {active === "personnel" && <PersonnelPage personnel={filtered.personnel} onAdd={() => addRow("personnel")} onEdit={(row) => openEditor("personnel", row)} onDelete={(row) => deleteRow("personnel", row)} />}
         {active === "credentials" && <Credentials credentials={filtered.credentials} onAdd={() => addRow("credentials")} onEdit={(row) => openEditor("credentials", row)} onDelete={(row) => deleteRow("credentials", row)} />}
         {active === "sops" && <Sops sops={filtered.sops} onAdd={() => addRow("sops")} onEdit={(row) => openEditor("sops", row)} onDelete={(row) => deleteRow("sops", row)} />}
-        {active === "projects" && <Projects data={filtered} />}
+        {active === "projects" && <Projects data={filtered} onEdit={(row) => openEditor("projects", row)} />}
         {active === "media" && <MediaReporters reporters={filtered.media} onAdd={() => addRow("media")} onEdit={(row) => openEditor("media", row)} onDelete={(row) => deleteRow("media", row)} />}
         {active === "inventory" && <Inventory items={filtered.inventory} onAdd={() => addRow("inventory")} onEdit={(row) => openEditor("inventory", row)} onDelete={(row) => deleteRow("inventory", row)} />}
         {active === "loans" && <Loans loans={filtered.loans} onAdd={() => addRow("loans")} onEdit={(row) => openEditor("loans", row)} onDelete={(row) => deleteRow("loans", row)} />}
@@ -926,7 +925,7 @@ function PersonnelPage({ personnel, onAdd, onEdit, onDelete }: { personnel: Pers
 
       <Panel title="派遣人員 / 工讀生" action={<PanelActions onAdd={onAdd} rows={personnel} filename="personnel.csv" />}>
         <DataTable
-          columns={["姓名/單位", "項目", "區域", "管理者", "電話", "Email", "狀態", "期間", "時薪/單價", "備註", "操作"]}
+          columns={["姓名/單位", "項目", "區域", "管理者", "電話", "Email", "狀態", "期間", "時薪/單價", "評價", "備註", "操作"]}
           rows={personnel.map((person) => [
             person.name,
             person.kind,
@@ -937,6 +936,7 @@ function PersonnelPage({ personnel, onAdd, onEdit, onDelete }: { personnel: Pers
             person.status,
             `${person.startDate || "未定"} → ${person.endDate || "未定"}`,
             person.hourlyRate ? money(person.hourlyRate) : "",
+            <RatingValue value={person.rating} />,
             person.note,
             <RowActions onEdit={() => onEdit(person)} onDelete={() => onDelete(person)} />,
           ])}
@@ -1032,7 +1032,7 @@ function Sops({ sops, onAdd, onEdit, onDelete }: { sops: SopItem[]; onAdd: () =>
   );
 }
 
-function Projects({ data }: { data: ResourceData }) {
+function Projects({ data, onEdit }: { data: ResourceData; onEdit: (row: Project) => void }) {
   return (
     <section className="view-stack">
       <div className="page-actions">
@@ -1050,6 +1050,7 @@ function Projects({ data }: { data: ResourceData }) {
                 </div>
                 <div className="card-actions">
                   <StatusBadge status={project.status} />
+                  <EditButton onClick={() => onEdit(project)} />
                 </div>
               </div>
               <p>{project.description || "尚無說明"}</p>
@@ -1058,19 +1059,17 @@ function Projects({ data }: { data: ResourceData }) {
                 <span>負責：{project.owner || "未指定"}</span>
                 <span>活動日：{project.startDate || "未定"}</span>
               </div>
-              {(project.status === "completed" || project.successes || project.improvements) && (
-                <div className="closeout-analysis">
-                  <strong>結案分析</strong>
-                  <div>
-                    <span>成功經驗</span>
-                    <p>{project.successes || "尚未填寫"}</p>
-                  </div>
-                  <div>
-                    <span>待改進事項</span>
-                    <p>{project.improvements || "尚未填寫"}</p>
-                  </div>
+              <div className="closeout-analysis">
+                <strong>結案分析</strong>
+                <div>
+                  <span>成功經驗</span>
+                  <p>{project.successes || "尚未填寫"}</p>
                 </div>
-              )}
+                <div>
+                  <span>待改進事項</span>
+                  <p>{project.improvements || "尚未填寫"}</p>
+                </div>
+              </div>
           </article>
         ))}
       </div>
@@ -1201,6 +1200,7 @@ function Vendors({ vendors, onAdd, onEdit, onDelete }: { vendors: Vendor[]; onAd
               <span>聯絡人：{vendor.contact || "未填"}</span>
               <span>電話：{vendor.phone || "未填"}</span>
               <span>Email：{vendor.email || "未填"}</span>
+              <span>評價：<RatingValue value={vendor.rating} /></span>
             </div>
           </article>
         ))}
@@ -1494,6 +1494,11 @@ function LoanBadge({ status }: { status: string }) {
   return <span className={`badge loan-${status}`}>{loanLabels[status] ?? status}</span>;
 }
 
+function RatingValue({ value }: { value: number }) {
+  const rating = Math.min(5, Math.max(0, Number(value) || 0));
+  return <span className="rating-value" aria-label={rating ? `${rating} 分` : "未評價"}>{rating ? `${"★".repeat(rating)} ${rating}` : "未評價"}</span>;
+}
+
 function StatusLegend() {
   return (
     <span className="legend">
@@ -1731,6 +1736,7 @@ function mapVendor(row: Record<string, string>, index: number): Vendor {
     phone: pick(row, ["phone", "電話"]),
     email: pick(row, ["email", "信箱"]),
     note: pick(row, ["note", "notes", "備註"]),
+    rating: toNumber(pick(row, ["rating", "評價", "評分"])),
   };
 }
 
@@ -1788,6 +1794,7 @@ function mapPersonnel(row: Record<string, string>, index: number): Personnel {
     endDate: pick(row, ["enddate", "end_date", "結束日期"]),
     hourlyRate: toNumber(pick(row, ["hourlyrate", "hourly_rate", "時薪", "單價"])),
     note: pick(row, ["note", "notes", "備註"]),
+    rating: toNumber(pick(row, ["rating", "評價", "評分"])),
   };
 }
 
@@ -2062,6 +2069,7 @@ function createBlankRow(key: ResourceKey, data?: ResourceData): ResourceRow {
       phone: "",
       email: "",
       note: "",
+      rating: 0,
     },
     cases: {
       id,
@@ -2104,6 +2112,7 @@ function createBlankRow(key: ResourceKey, data?: ResourceData): ResourceRow {
       endDate: "",
       hourlyRate: 0,
       note: "",
+      rating: 0,
     },
     credentials: {
       id,
@@ -2159,6 +2168,13 @@ function loanOptions() {
     { label: "待借出", value: "pending" },
     { label: "借用中", value: "borrowed" },
     { label: "已歸還", value: "returned" },
+  ];
+}
+
+function ratingOptions() {
+  return [
+    { label: "尚未評價", value: "0" },
+    ...[1, 2, 3, 4, 5].map((rating) => ({ label: `${"★".repeat(rating)}（${rating} 分）`, value: String(rating) })),
   ];
 }
 
