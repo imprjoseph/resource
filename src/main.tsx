@@ -20,6 +20,7 @@ import {
   IdCard,
   KeyRound,
   LogOut,
+  Newspaper,
   Pencil,
   Plus,
   RefreshCw,
@@ -33,7 +34,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-type SheetKey = "projects" | "inventory" | "loans" | "vendors" | "cases" | "budget" | "accounts" | "personnel" | "credentials" | "sops";
+type SheetKey = "projects" | "media" | "inventory" | "loans" | "vendors" | "cases" | "budget" | "accounts" | "personnel" | "credentials" | "sops";
 
 type SheetSettings = Record<SheetKey, string> & {
   writeEndpoint: string;
@@ -63,6 +64,16 @@ type InventoryItem = {
   borrowed: number;
   location: string;
   note: string;
+};
+
+type MediaReporter = {
+  id: string;
+  media: string;
+  name: string;
+  title: string;
+  phone: string;
+  email: string;
+  lastContact: string;
 };
 
 type Loan = {
@@ -157,6 +168,7 @@ type SopItem = {
 
 type ResourceData = {
   projects: Project[];
+  media: MediaReporter[];
   inventory: InventoryItem[];
   loans: Loan[];
   vendors: Vendor[];
@@ -186,6 +198,7 @@ type SheetMutation = {
   action: "create" | "update" | "delete";
   sheet: ResourceKey;
   row: ResourceRow;
+  sessionToken?: string;
 };
 
 type SopAttachmentMutation = {
@@ -224,6 +237,8 @@ type AppsScriptLoginResponse = {
   result?: {
     account: Record<string, string>;
     accounts: Record<string, string>[];
+    sessionToken: string;
+    media: Record<string, string>[];
   };
   error?: string;
 };
@@ -263,6 +278,7 @@ const maxSopAttachmentSize = 10 * 1024 * 1024;
 
 const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "projects", label: "專案", hint: "活動編號, 活動名稱, 客戶／主辦單位, 活動日期, PM, 執行階段, 完成率" },
+  { key: "media", label: "媒體記者", hint: "id, media, name, title, phone, email, lastContact" },
   { key: "inventory", label: "物資", hint: "id, name, category, manager, quantity, borrowed, location, note" },
   { key: "loans", label: "借用", hint: "id, purpose, borrower, status, plannedAt, borrowedAt, returnedAt, items" },
   { key: "vendors", label: "廠商", hint: "id, name, type, contact, phone, email, note" },
@@ -273,10 +289,11 @@ const sheetKeys: { key: SheetKey; label: string; hint: string }[] = [
   { key: "credentials", label: "帳密大全", hint: "id, name, url, account, password, period, manager, note" },
   { key: "sops", label: "SOP", hint: "id, title, category, owner, version, status, updatedAt, fileUrl, description" },
 ];
-const configurableSheetKeys = sheetKeys.filter((sheet) => sheet.key !== "projects");
+const configurableSheetKeys = sheetKeys.filter((sheet) => !["projects", "media"].includes(sheet.key));
 
 const emptySettings: SheetSettings = {
   projects: "",
+  media: "",
   inventory: "",
   loans: "",
   vendors: "",
@@ -334,6 +351,7 @@ const sampleData: ResourceData = {
       improvements: "",
     },
   ],
+  media: [],
   inventory: [
     { id: "i-001", name: "MacBook Pro 14", category: "3C", manager: "林怡君", quantity: 4, borrowed: 1, location: "資訊櫃 A", note: "含充電器" },
     { id: "i-002", name: "Sony FX3", category: "3C", manager: "王佳玲", quantity: 2, borrowed: 1, location: "器材櫃 A", note: "含電池組" },
@@ -386,6 +404,7 @@ const sampleData: ResourceData = {
 
 const editorLabels: Record<ResourceKey, string> = {
   projects: "專案",
+  media: "媒體記者",
   inventory: "物資",
   loans: "借用",
   vendors: "廠商",
@@ -420,6 +439,14 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
     { key: "description", label: "說明", type: "textarea" },
     { key: "successes", label: "結案分析－成功經驗", type: "textarea" },
     { key: "improvements", label: "結案分析－待改進事項", type: "textarea" },
+  ],
+  media: [
+    { key: "media", label: "媒體" },
+    { key: "name", label: "姓名" },
+    { key: "title", label: "職稱" },
+    { key: "phone", label: "電話", type: "tel" },
+    { key: "email", label: "Email", type: "email" },
+    { key: "lastContact", label: "前次聯繫", type: "date" },
   ],
   inventory: [
     { key: "name", label: "名稱" },
@@ -529,6 +556,7 @@ function buildEditorFields(data: ResourceData): Record<ResourceKey, FormField[]>
 function App() {
   const [active, setActive] = useState("dashboard");
   const [adminName, setAdminName] = useState("");
+  const [sessionToken, setSessionToken] = useState("");
   const [settings, setSettings] = usePersistentSettings();
   const [data, setData] = useState<ResourceData>(sampleData);
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -539,7 +567,7 @@ function App() {
   async function refresh() {
     setLoading(true);
     try {
-      const loaded = await loadSheetData(settings);
+      const loaded = await loadSheetData(settings, sessionToken);
       const merged = mergeLocalEdits(loaded, Boolean(settings.writeEndpoint.trim()));
       setData(merged);
       setMessage(hasRemoteDataSource(settings) ? "已載入 Google Sheet 資料" : "使用範例資料，含本機編輯");
@@ -563,8 +591,10 @@ function App() {
       const result = await postAppsScriptLogin(settings.writeEndpoint, identifier, password);
       const account = mapAccount(result.account, 0);
       const accounts = simplifyAccountIds(result.accounts.map(mapAccount));
-      setData((current) => ({ ...current, accounts }));
+      const media = result.media.map(mapMedia);
+      setData((current) => ({ ...current, accounts, media }));
       setAdminName(account.name || account.email || account.id);
+      setSessionToken(result.sessionToken);
       localStorage.removeItem("resource-admin-session");
       return "";
     } catch (error) {
@@ -574,6 +604,8 @@ function App() {
 
   function logout() {
     setAdminName("");
+    setSessionToken("");
+    setData((current) => ({ ...current, media: [] }));
     localStorage.removeItem("resource-admin-session");
   }
 
@@ -602,7 +634,7 @@ function App() {
     setEditor(null);
     if (settings.writeEndpoint.trim()) {
       try {
-        await postSheetMutation(settings.writeEndpoint, { action, sheet: key, row: nextRow });
+        await postSheetMutation(settings.writeEndpoint, { action, sheet: key, row: nextRow, sessionToken: key === "media" ? sessionToken : undefined });
         if (key === "sops" && attachmentFile) {
           const uploadResult = await postSopAttachment(settings.writeEndpoint, nextRow as SopItem, attachmentFile);
           if (!uploadResult.fileUrl) throw new Error("後端未回傳附件連結");
@@ -641,7 +673,7 @@ function App() {
     });
     if (settings.writeEndpoint.trim()) {
       try {
-        await postSheetMutation(settings.writeEndpoint, { action: "delete", sheet: key, row });
+        await postSheetMutation(settings.writeEndpoint, { action: "delete", sheet: key, row, sessionToken: key === "media" ? sessionToken : undefined });
         setMessage("已同步刪除 Google Sheet 資料");
       } catch (error) {
         setMessage(error instanceof Error ? `已先刪除本機資料，同步失敗：${error.message}` : "已先刪除本機資料，同步失敗");
@@ -658,6 +690,7 @@ function App() {
     { id: "credentials", label: "帳密大全", icon: KeyRound },
     { id: "sops", label: "SOP", icon: ScrollText },
     { id: "projects", label: "專案", icon: FolderKanban },
+    { id: "media", label: "媒體記者", icon: Newspaper },
     { id: "inventory", label: "物資", icon: Boxes },
     { id: "loans", label: "借用", icon: ClipboardList },
     { id: "vendors", label: "廠商", icon: UsersRound },
@@ -719,6 +752,7 @@ function App() {
         {active === "credentials" && <Credentials credentials={filtered.credentials} onAdd={() => addRow("credentials")} onEdit={(row) => openEditor("credentials", row)} onDelete={(row) => deleteRow("credentials", row)} />}
         {active === "sops" && <Sops sops={filtered.sops} onAdd={() => addRow("sops")} onEdit={(row) => openEditor("sops", row)} onDelete={(row) => deleteRow("sops", row)} />}
         {active === "projects" && <Projects data={filtered} />}
+        {active === "media" && <MediaReporters reporters={filtered.media} onAdd={() => addRow("media")} onEdit={(row) => openEditor("media", row)} onDelete={(row) => deleteRow("media", row)} />}
         {active === "inventory" && <Inventory items={filtered.inventory} onAdd={() => addRow("inventory")} onEdit={(row) => openEditor("inventory", row)} onDelete={(row) => deleteRow("inventory", row)} />}
         {active === "loans" && <Loans loans={filtered.loans} onAdd={() => addRow("loans")} onEdit={(row) => openEditor("loans", row)} onDelete={(row) => deleteRow("loans", row)} />}
         {active === "vendors" && <Vendors vendors={filtered.vendors} onAdd={() => addRow("vendors")} onEdit={(row) => openEditor("vendors", row)} onDelete={(row) => deleteRow("vendors", row)} />}
@@ -1041,6 +1075,27 @@ function Projects({ data }: { data: ResourceData }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function MediaReporters({ reporters, onAdd, onEdit, onDelete }: { reporters: MediaReporter[]; onAdd: () => void; onEdit: (row: MediaReporter) => void; onDelete: (row: MediaReporter) => void }) {
+  const sorted = [...reporters].sort((a, b) => a.media.localeCompare(b.media, "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant"));
+
+  return (
+    <Panel title="媒體記者清單" action={<PanelActions onAdd={onAdd} rows={sorted} filename="media-reporters.csv" />}>
+      <DataTable
+        columns={["媒體", "姓名", "職稱", "電話", "Email", "前次聯繫", "操作"]}
+        rows={sorted.map((reporter) => [
+          reporter.media,
+          reporter.name,
+          reporter.title,
+          reporter.phone ? <a href={`tel:${reporter.phone}`}>{reporter.phone}</a> : "",
+          reporter.email ? <a href={`mailto:${reporter.email}`}>{reporter.email}</a> : "",
+          reporter.lastContact,
+          <RowActions onEdit={() => onEdit(reporter)} onDelete={() => onDelete(reporter)} />,
+        ])}
+      />
+    </Panel>
   );
 }
 
@@ -1478,9 +1533,10 @@ function usePersistentSettings(): [SheetSettings, (settings: SheetSettings) => v
   return [settings, setSettings];
 }
 
-async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
-  const [projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops] = await Promise.all([
+async function loadSheetData(settings: SheetSettings, sessionToken = ""): Promise<ResourceData> {
+  const [projects, media, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops] = await Promise.all([
     loadAppsScriptSheet(settings.writeEndpoint, "projects", sampleData.projects, mapProject),
+    sessionToken ? loadPrivateAppsScriptSheet(settings.writeEndpoint, "media", sessionToken, mapMedia) : Promise.resolve([]),
     settings.inventory.trim()
       ? loadCsv(settings.inventory, sampleData.inventory, mapInventory)
       : loadAppsScriptSheet(settings.writeEndpoint, "inventory", sampleData.inventory, mapInventory),
@@ -1494,7 +1550,25 @@ async function loadSheetData(settings: SheetSettings): Promise<ResourceData> {
     loadCsv(settings.sops, sampleData.sops, mapSop),
   ]);
 
-  return { projects, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops };
+  return { projects, media, inventory, loans, vendors, cases, budget, accounts, personnel, credentials, sops };
+}
+
+async function loadPrivateAppsScriptSheet<T>(
+  endpoint: string,
+  sheet: string,
+  sessionToken: string,
+  mapper: (row: Record<string, string>, index: number) => T,
+): Promise<T[]> {
+  const response = await fetch(endpoint.trim(), {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "readPrivateSheet", sheet, sessionToken }),
+  });
+  if (!response.ok) throw new Error(`Apps Script HTTP ${response.status}`);
+  const payload = (await response.json()) as AppsScriptReadResponse;
+  if (!payload.ok) throw new Error(payload.error || `無法讀取 ${sheet}`);
+  if (!payload.result || payload.result.sheet !== sheet) throw new Error(`${sheet} 回應格式不正確`);
+  return payload.result.rows.map(mapper);
 }
 
 async function loadAppsScriptSheet<T>(
@@ -1603,6 +1677,18 @@ function mapInventory(row: Record<string, string>, index: number): InventoryItem
     borrowed: toNumber(pick(row, ["borrowed", "借出", "借用中"])),
     location: pick(row, ["location", "位置"]),
     note: pick(row, ["note", "notes", "備註"]),
+  };
+}
+
+function mapMedia(row: Record<string, string>, index: number): MediaReporter {
+  return {
+    id: pick(row, ["id", "編號"]) || `media-${index + 1}`,
+    media: pick(row, ["media", "媒體", "媒體名稱"]),
+    name: pick(row, ["name", "姓名", "記者姓名"]),
+    title: pick(row, ["title", "職稱"]),
+    phone: pick(row, ["phone", "電話", "手機"]),
+    email: pick(row, ["email", "信箱"]),
+    lastContact: pick(row, ["lastcontact", "last_contact", "前次聯繫", "上次聯繫"]),
   };
 }
 
@@ -1781,6 +1867,7 @@ function filterData(data: ResourceData, query: string): ResourceData {
   const includes = (values: unknown[]) => values.some((value) => String(value ?? "").toLowerCase().includes(q));
   return {
     projects: data.projects.filter((item) => includes(Object.values(item))),
+    media: data.media.filter((item) => includes(Object.values(item))),
     inventory: data.inventory.filter((item) => includes(Object.values(item))),
     loans: data.loans.filter((item) => includes(Object.values(item))),
     vendors: data.vendors.filter((item) => includes(Object.values(item))),
@@ -1802,6 +1889,7 @@ function mergeLocalEdits(data: ResourceData, preferCloudSheets = false): Resourc
       ...data,
       ...local,
       projects: preferCloudSheets ? data.projects : (local.projects || data.projects),
+      media: data.media,
       inventory: preferCloudSheets ? data.inventory : (local.inventory || data.inventory),
       sops: Array.isArray(local.sops) && local.sops.length > 0 ? local.sops : data.sops,
     };
@@ -1836,7 +1924,7 @@ function simplifyAccountIds(accounts: Account[]) {
 }
 
 function persistLocalEdits(data: ResourceData) {
-  localStorage.setItem("resource-local-edits", JSON.stringify(data));
+  localStorage.setItem("resource-local-edits", JSON.stringify({ ...data, media: [] }));
 }
 
 function isExistingRow(data: ResourceData, key: ResourceKey, row: ResourceRow) {
@@ -1919,6 +2007,15 @@ function createBlankRow(key: ResourceKey, data?: ResourceData): ResourceRow {
       description: "",
       successes: "",
       improvements: "",
+    },
+    media: {
+      id,
+      media: "",
+      name: "新增記者",
+      title: "",
+      phone: "",
+      email: "",
+      lastContact: "",
     },
     inventory: {
       id,

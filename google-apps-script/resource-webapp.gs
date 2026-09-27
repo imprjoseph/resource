@@ -5,12 +5,16 @@ const PROJECTS_HEADER_ROW = 5;
 const SOP_FOLDER_ID = "12sV1AcbL9-7uTfuuKCx0Lh-XR9hh2cRT";
 const SOP_FILE_SHARE_WITH_LINK = true;
 const READABLE_SHEETS = ["projects", "inventory"];
+const PRIVATE_READABLE_SHEETS = ["media"];
+const SESSION_TTL_SECONDS = 21600;
 
 function doPost(event) {
   try {
     const payload = JSON.parse(event.postData.contents || "{}");
     const result = payload.action === "login"
       ? handleLogin(payload)
+      : payload.action === "readPrivateSheet"
+        ? handlePrivateSheetRead(payload)
       : payload.action === "uploadSopFile"
         ? handleSopFileUpload(payload)
         : handleMutation(payload);
@@ -42,10 +46,33 @@ function handleLogin(payload) {
   }
 
   const isManager = ["manager", "admin", "管理者"].includes(String(account.role || "").trim().toLowerCase());
+  const sessionToken = createSessionToken(account.id);
   return {
     account,
     accounts: isManager ? accounts : [account],
+    sessionToken,
+    media: readSheetRows("media"),
   };
+}
+
+function createSessionToken(accountId) {
+  const token = Utilities.getUuid();
+  CacheService.getScriptCache().put(`resource-session:${token}`, String(accountId || ""), SESSION_TTL_SECONDS);
+  return token;
+}
+
+function requireSession(sessionToken) {
+  const token = String(sessionToken || "").trim();
+  if (!token || !CacheService.getScriptCache().get(`resource-session:${token}`)) {
+    throw new Error("登入狀態已失效，請重新登入");
+  }
+}
+
+function handlePrivateSheetRead(payload) {
+  requireSession(payload.sessionToken);
+  const sheetName = String(payload.sheet || "");
+  if (!PRIVATE_READABLE_SHEETS.includes(sheetName)) throw new Error("Sheet is not available for private reading");
+  return { sheet: sheetName, rows: readSheetRows(sheetName) };
 }
 
 function doGet(event) {
@@ -104,6 +131,7 @@ function handleMutation(payload) {
   if (!["create", "update", "delete"].includes(action)) throw new Error("Invalid action");
   if (!sheetName) throw new Error("Missing sheet");
   if (!row.id) throw new Error("Missing row id");
+  if (PRIVATE_READABLE_SHEETS.includes(sheetName)) requireSession(payload.sessionToken);
 
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = spreadsheet.getSheetByName(sheetName);
